@@ -18,12 +18,16 @@ This dashboard helps players and coaches analyze throw-by-throw ultimate data, p
 - **Hover/click charts** for more detail. See "By Player" sections for personalized maps.
 """)
 
+# --- DATA LOAD & DEBUG #1 ---
 uploaded_file = st.file_uploader("Upload your CSV (e.g., '2025-05-02-MAD-HTX.csv')", type="csv")
 if not uploaded_file:
     st.info("👆 Upload your data to get started!")
     st.stop()
 
 df = pd.read_csv(uploaded_file)
+
+# Debug #1: list all result labels present in the file
+st.write("🔍 All result types in this dataset:", df['result'].unique())
 
 # --- GAME SELECTION ---
 game_ids = df['gameID'].unique().tolist()
@@ -36,12 +40,10 @@ if game_option != "All Games":
     df = df[df['gameID'] == game_option]
 
 df_receivers = df.dropna(subset=['receiver'])
-# include both regular completions and goals
-# include both normal completions and goals
+
+# --- INCLUDE COMPLETIONS & GOALS ---
 goal_labels = ['Completion', 'Goal']
 df_completions = df[df['result'].isin(goal_labels)]
-
-st.write("All result types:", df['result'].unique())
 
 # --- MAIN TABS ---
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
@@ -56,7 +58,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 with tab1:
     st.markdown("### 📈 Throw-Level Performance\n_Summary of how individual players contribute to throwing and receiving in the selected dataset._")
     st.metric("Total Throws", len(df))
-    st.metric("Total Completions", len(df_completions))
+    st.metric("Total Completions/Goals", len(df_completions))
     st.divider()
 
     st.subheader("Completion Rate by Player (Thrower)")
@@ -73,10 +75,10 @@ with tab1:
 
     st.subheader("Top Thrower–Receiver Duos")
     duos = df_completions.groupby(['thrower','receiver']).size().sort_values(ascending=False)
-    duos = duos.reset_index().rename(columns={0:'Completions'})
+    duos = duos.reset_index().rename(columns={0:'Completions/Goals'})
     st.dataframe(duos.head(15))
-    st.divider()
 
+    st.divider()
     st.subheader("Most Active Throwers")
     st.bar_chart(thrower_atts.sort_values(ascending=False).head(15), use_container_width=True)
 
@@ -88,6 +90,7 @@ with tab2:
     st.markdown("### 🗺️ Field & Throw Position\n_See where throws originate and end, and analyze player tendencies spatially._")
     st.divider()
 
+    # Origin viz
     viz_option = st.radio(
         "Visualize throw origins as:",
         ["Heatmap", "Each Throw (Scatter)"], horizontal=True
@@ -102,25 +105,33 @@ with tab2:
     ax.set_xlabel("Field X (width, meters)")
     ax.set_ylabel("Field Y (length, meters)")
     st.pyplot(fig)
-    st.divider()
 
-    st.subheader("Heatmap of Completions")
+    st.divider()
+    # Absolute completion heatmap
+    st.subheader("Heatmap of Completions/Goals")
     fig2, ax2 = plt.subplots()
     sns.kdeplot(
         x=df_completions['recX'], y=df_completions['recY'],
-        cmap="YlOrRd", shade=True, bw_adjust=1.2, ax=ax2)
-    ax2.set_title("Completion Location Density")
+        cmap="YlOrRd", shade=True, bw_adjust=1.2, ax=ax2
+    )
+    ax2.set_title("Completion/Goal Location Density")
     ax2.set_xlabel("Field X (width, meters)")
     ax2.set_ylabel("Field Y (length, meters)")
     st.pyplot(fig2)
 
-    st.subheader("By Player: Relative Throw Maps")
+    st.subheader("By Player: Relative Throw Maps & Debug for Goals")
     all_players = sorted(set(df['thrower'].unique()) | set(df['receiver'].dropna().unique()))
     selected_player = st.selectbox("Select player for individual heatmaps", all_players)
+
     player_throws = df[df['thrower'] == selected_player]
     player_catches = df_completions[df_completions['receiver'] == selected_player]
-    st.markdown("_Visualizes throws/catches relative to the throw start (origin at (0,0))_")
 
+    # Debug #2
+    total_catches = len(player_catches)
+    goal_count = int((player_catches['result'] == 'Goal').sum())
+    st.write(f"🎯 **{selected_player}** has **{total_catches}** catch(es), of which **{goal_count}** {'is' if goal_count==1 else 'are'} Goal{'s' if goal_count!=1 else ''}.")
+
+    st.markdown("_Visualizes throws/catches relative to the throw start (origin at (0,0))_")
     # Relative throw heatmap
     fig_pthrow_rel, ax_pthrow_rel = plt.subplots()
     if not player_throws.empty:
@@ -136,51 +147,37 @@ with tab2:
     else:
         st.info(f"No throws for {selected_player}")
 
+    # Overlay catches & throw origins with squares for goals
     st.subheader(f"📍 {selected_player}'s Catches & Their Throw Origins (Goals as Squares)")
-
-    # only look at that player's completions
     actions = player_catches.reset_index(drop=True)
     n = len(actions)
     cmap = plt.get_cmap('rainbow')
-    colors = cmap(np.linspace(0, 1, n))
+    colors = cmap(np.linspace(0, 1, max(n,1)))
 
-    fig, ax = plt.subplots(figsize=(6, 6))
+    fig, ax = plt.subplots(figsize=(6,6))
+    for idx, row in actions.iterrows():
+        is_goal = (row['result'] == 'Goal')
+        catch_marker = 's' if is_goal else 'o'
+        catch_size   = 120  if is_goal else 80
 
-    for i, row in actions.iterrows():
-        # define which result‐types count as a “goal”
-        goal_labels = {'Goal'}
-
-        for i, row in actions.iterrows():
-            # square for real goals, circle otherwise
-            catch_marker = 's' if row['result'] in goal_labels else 'o'
-            catch_size = 100 if row['result'] in goal_labels else 80
-
-            # plot catch
-            ax.scatter(
-                row['recX'], row['recY'],
-                marker=catch_marker,
-                s=catch_size,
-                color=colors[i],
-                edgecolor='white',
-                alpha=0.8,
-                label='_nolegend_'
-            )
-            # plot throw origin
-            ax.scatter(
-                row['thrX'], row['thrY'],
-                marker='*',
-                s=150,
-                color=colors[i],
-                alpha=0.8,
-                label='_nolegend_'
-            )
+        # plot catch
+        ax.scatter(
+            row['recX'], row['recY'],
+            marker=catch_marker, s=catch_size,
+            color=colors[idx], edgecolor='white', alpha=0.8
+        )
+        # plot throw origin
+        ax.scatter(
+            row['thrX'], row['thrY'],
+            marker='*', s=150,
+            color=colors[idx], alpha=0.8
+        )
 
     ax.set_title(f"Catches by {selected_player} & Their Throw Origins")
     ax.set_xlabel("Field X (meters)")
     ax.set_ylabel("Field Y (meters)")
     ax.set_xlim(df['thrX'].min(), df['thrX'].max())
     ax.set_ylim(df['thrY'].min(), df['thrY'].max())
-
     st.pyplot(fig)
 
     # Relative catch heatmap
@@ -199,19 +196,18 @@ with tab2:
         st.info(f"No completions caught by {selected_player}")
 
     st.divider()
-    # --- RELATIVE COMPLETION % HEATMAP (IMPROVED WITH DEBUG OPTION & STATS) ---
+    # --- RELATIVE COMPLETION % HEATMAP WITH STATS ---
     st.subheader("🎯 Relative Completion % (by direction/length)")
     if not player_throws.empty:
-        # --- PLAYER SUMMARY INFO ---
         total_throws = len(player_throws)
-        completions = player_throws['result'].eq('Completion').sum()
-        comp_pct = completions / total_throws if total_throws > 0 else 0
+        completions   = player_throws['result'].eq('Completion').sum()
+        comp_pct      = completions / total_throws if total_throws > 0 else 0
         throw_distances = np.sqrt(
             (player_throws['thrX'] - player_throws['recX'])**2 +
             (player_throws['thrY'] - player_throws['recY'])**2
         )
         avg_throw_distance = throw_distances.mean()
-        longest_throw = throw_distances.max()
+        longest_throw      = throw_distances.max()
 
         st.info(
             f"**{selected_player}**\n"
@@ -225,7 +221,7 @@ with tab2:
         relY = player_throws['recY'] - player_throws['thrY']
         completed = player_throws['result'] == 'Completion'
 
-        bin_count = st.slider("Box size (bigger box = fewer bins)", min_value=3, max_value=15, value=8)
+        bin_count     = st.slider("Box size (bigger box = fewer bins)", min_value=3, max_value=15, value=8)
         debug_scatter = st.checkbox("Show individual throws on heatmap", value=False)
 
         heatmap, xedges, yedges = np.histogram2d(
@@ -235,18 +231,18 @@ with tab2:
             relX[completed], relY[completed], bins=[xedges, yedges]
         )
         completion_pct = np.where(heatmap > 0, completed_heatmap / heatmap, np.nan)
-        fig, ax = plt.subplots(figsize=(6, 6))
-        cmap = plt.get_cmap("viridis")
+
+        fig, ax = plt.subplots(figsize=(6,6))
+        cmap2  = plt.get_cmap("viridis")
         masked = np.ma.masked_where(heatmap == 0, completion_pct)
-        norm = mcolors.Normalize(vmin=0, vmax=1)
-        c = ax.pcolormesh(xedges, yedges, masked.T, cmap=cmap, shading='auto', norm=norm)
+        norm   = mcolors.Normalize(vmin=0, vmax=1)
+        c      = ax.pcolormesh(xedges, yedges, masked.T, cmap=cmap2, shading='auto', norm=norm)
         ax.plot(0, 0, 'ro', markersize=10, label='Origin')
         fig.colorbar(c, ax=ax, label="Completion %")
         ax.set_title(f"Completion %: {selected_player} (from origin)")
         ax.set_xlabel("Relative X (meters)")
         ax.set_ylabel("Relative Y (meters)")
 
-        # Optional: Overlay completions/incompletions
         if debug_scatter:
             ax.scatter(relX[completed], relY[completed], color='lime', label='Completions', marker='o')
             ax.scatter(relX[~completed], relY[~completed], color='red', label='Throwaways', marker='x')
@@ -282,7 +278,7 @@ with tab2:
     st.plotly_chart(px.histogram(
         df, x='direction', color='result', barmode='group',
         title="Throw Direction Outcomes",
-        labels={'direction': 'Throw Direction', 'count': 'Number of Throws'}
+        labels={'direction':'Throw Direction','count':'Number of Throws'}
     ))
 
 # --- TAB 3: TACTICAL INSIGHTS ---
@@ -291,7 +287,7 @@ with tab3:
     st.subheader("Throw Outcomes")
     st.plotly_chart(px.histogram(
         df, x='result', color='result', title="Throw Outcomes",
-        labels={'result': 'Throw Result', 'count': 'Number of Throws'}
+        labels={'result':'Throw Result','count':'Number of Throws'}
     ))
     st.divider()
 
@@ -300,7 +296,7 @@ with tab3:
     st.plotly_chart(px.histogram(
         df_turnover, x='distance', nbins=20,
         title="Turnover Throw Distances",
-        labels={'distance': 'Throw Distance (meters)', 'count': 'Number of Turnovers'}
+        labels={'distance':'Throw Distance (meters)','count':'Number of Turnovers'}
     ))
 
     st.subheader("Field Zones with Highest Drop Rates")
@@ -323,7 +319,7 @@ with tab3:
 with tab4:
     st.markdown("### 🔄 Team Metrics\n_See how efficiently the team moves the disc and scores points._")
     st.subheader("Completions per Possession")
-    poss_eff = df.groupby('point').apply(lambda x: (x['result']=='Completion').sum())
+    poss_eff = df.groupby('point').apply(lambda x: (x['result'] == 'Completion').sum())
     st.line_chart(poss_eff.rename("Completions per Possession"))
 
     st.subheader("Throws per Point")
@@ -339,7 +335,6 @@ with tab4:
 # --- TAB 5: PLAYER IMPACT ---
 with tab5:
     st.markdown("### 🌟 Player Impact\n_Who's making a difference with big yards, scores, or clutch throws?_")
-
     st.subheader("Yards Gained per Throw (Top 10)")
     yards = df[df['result']=='Completion'].copy()
     yards['yards'] = np.sqrt((yards['thrX']-yards['recX'])**2 + (yards['thrY']-yards['recY'])**2) * 1.09361
