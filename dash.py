@@ -182,7 +182,7 @@ with tab2:
     # build the chart
     chart = (
         alt.Chart(df_plot)
-        .mark_point(filled=True, size=200)  # ↑ bigger points
+        .mark_point(filled=True, size=100)
         .encode(
             x=alt.X('x:Q', title='Field X (meters)'),
             y=alt.Y('y:Q', title='Field Y (meters)'),
@@ -198,11 +198,11 @@ with tab2:
             width=600, height=600,
             title=f"Catches & Throw Origins for {selected_player} (hover to highlight)"
         )
-        .configure(background='white')
-        .configure_view(fill='white')
-        .configure_title(color='black')  # title text black
-        .configure_axis(labelColor='black', titleColor='black')  # axes text black
+        .configure(background='white', text='black')  # make the overall background white
+        .configure_view(fill='white')  # make the plot panel itself white
     )
+
+    st.altair_chart(chart, use_container_width=True)
 
     # Relative catch heatmap
     fig_pcatch_rel, ax_pcatch_rel = plt.subplots()
