@@ -223,6 +223,30 @@ with tab2:
         title="Throw Direction Outcomes",
         labels={'direction': 'Throw Direction', 'count': 'Number of Throws'}
     ))
+    with tab2:
+        st.header("🧭 Field Position Analysis")
+        st.caption("Analyze where throws start and end, and which field zones are most efficient.")
+
+        st.subheader("Throw Origin Visualization")
+        viz_option = st.radio(
+            "Choose throw origin view:",
+            ["Heatmap", "Each Throw (Scatter)"],
+            horizontal=True
+        )
+
+        fig, ax = plt.subplots()
+        if viz_option == "Heatmap":
+            sns.kdeplot(
+                x=df['thrX'], y=df['thrY'],
+                cmap="YlGnBu", shade=True, bw_adjust=1.2, ax=ax
+            )
+            ax.set_title("Throw Origin Density")
+        else:
+            ax.scatter(df['thrX'], df['thrY'], c='darkblue', alpha=0.6, edgecolor='white', s=70)
+            ax.set_title("Each Throw Origin (Scatter Plot)")
+        ax.set_xlabel("Field X position (width, meters)")
+        ax.set_ylabel("Field Y position (length, meters)")
+        st.pyplot(fig)
 
 # ========== 3. TACTICAL INSIGHTS ==========
 with tab3:
