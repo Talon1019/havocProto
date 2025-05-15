@@ -147,7 +147,7 @@ with tab2:
     sns.histplot(
         x=drops['thrX'],
         y=drops['thrY'],
-        bins=(40, 20),  # tweak for resolution
+        bins=(10, 5),  # tweak for resolution
         cmap="OrRd",
         cbar=True,
         cbar_kws={'label': 'Throwaway Count'},
