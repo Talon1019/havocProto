@@ -38,6 +38,7 @@ if game_option != "All Games":
 df_receivers = df.dropna(subset=['receiver'])
 # include both regular completions and goals
 df_completions = df[df['result'].isin(['Completion', 'Goal'])]
+st.write("All result types:", df['result'].unique())
 
 # --- MAIN TABS ---
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
