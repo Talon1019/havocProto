@@ -131,9 +131,9 @@ with tab2:
     else:
         st.info(f"No throws for {selected_player}")
 
-    st.subheader(f"📍 {selected_player}'s Catches & Their Throw Origins")
+    st.subheader(f"📍 {selected_player}'s Catches & Their Throw Origins (Goals as Squares)")
 
-    # only look at that player’s completions
+    # only look at that player's completions
     actions = player_catches.reset_index(drop=True)
     n = len(actions)
     cmap = plt.get_cmap('rainbow')
@@ -142,28 +142,36 @@ with tab2:
     fig, ax = plt.subplots(figsize=(6, 6))
 
     for i, row in actions.iterrows():
-        # catch location as filled circle
+        # choose square for goals, circle otherwise
+        catch_marker = 's' if row['result'] == 'Goal' else 'o'
+        catch_size = 100 if row['result'] == 'Goal' else 80
+
+        # plot catch
         ax.scatter(
             row['recX'], row['recY'],
-            marker='o', s=80,
-            color=colors[i], edgecolor='white',
+            marker=catch_marker,
+            s=catch_size,
+            color=colors[i],
+            edgecolor='white',
             alpha=0.8,
             label='_nolegend_'
         )
-        # corresponding throw origin as star
+        # plot throw origin
         ax.scatter(
             row['thrX'], row['thrY'],
-            marker='*', s=150,
-            color=colors[i], alpha=0.8,
+            marker='*',
+            s=150,
+            color=colors[i],
+            alpha=0.8,
             label='_nolegend_'
         )
 
     ax.set_title(f"Catches by {selected_player} & Their Throw Origins")
     ax.set_xlabel("Field X (meters)")
     ax.set_ylabel("Field Y (meters)")
-    # optional: draw field boundaries
     ax.set_xlim(df['thrX'].min(), df['thrX'].max())
     ax.set_ylim(df['thrY'].min(), df['thrY'].max())
+
     st.pyplot(fig)
 
     # Relative catch heatmap
