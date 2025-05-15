@@ -163,14 +163,18 @@ with tab2:
         relY = player_throws['recY'] - player_throws['thrY']
         completed = player_throws['result'] == 'Completion'
 
-        bins = 30  # Adjust for resolution
+        bin_count = st.slider(
+            "Box size (fewer = bigger boxes, more = smaller boxes)",
+            min_value=5, max_value=30, value=12
+        )
         heatmap, xedges, yedges = np.histogram2d(
-            relX, relY, bins=bins, range=[[-40, 40], [-10, 70]]
+            relX, relY, bins=bin_count, range=[[-40, 40], [-10, 70]]
         )
         completed_heatmap, _, _ = np.histogram2d(
             relX[completed], relY[completed], bins=[xedges, yedges]
         )
         completion_pct = np.where(heatmap > 0, completed_heatmap / heatmap, np.nan)
+
         fig, ax = plt.subplots(figsize=(6, 6))
         cmap = plt.get_cmap("viridis")
         masked = np.ma.masked_invalid(completion_pct)
