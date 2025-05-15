@@ -189,16 +189,17 @@ with tab2:
             shape=alt.Shape('type:N',
                             scale=alt.Scale(domain=['Throw Origin', 'Catch', 'Goal'],
                                             range=['triangle-up', 'circle', 'square'])),
-            color=alt.Color('id:N', legend=None),  # unique color per pair
+            color=alt.Color('id:N', legend=None),
             opacity=alt.condition(hover, alt.value(1), alt.value(0.2)),
             tooltip=['type:N', 'x:Q', 'y:Q']
         )
         .add_selection(hover)
         .properties(
-            width=600,
-            height=600,
+            width=600, height=600,
             title=f"Catches & Throw Origins for {selected_player} (hover to highlight)"
         )
+        .configure(background='white')  # make the overall background white
+        .configure_view(fill='white')  # make the plot panel itself white
     )
 
     st.altair_chart(chart, use_container_width=True)
