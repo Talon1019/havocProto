@@ -185,7 +185,7 @@ with tab2:
         completion_pct = np.where(heatmap > 0, completed_heatmap / heatmap, np.nan)
         fig, ax = plt.subplots(figsize=(6, 6))
         cmap = plt.get_cmap("viridis")
-        masked = np.ma.masked_invalid(completion_pct)
+        masked = np.ma.masked_where(heatmap == 0, completion_pct)
         norm = mcolors.Normalize(vmin=0, vmax=1)
         c = ax.pcolormesh(xedges, yedges, masked.T, cmap=cmap, shading='auto', norm=norm)
         ax.plot(0, 0, 'ro', markersize=10, label='Origin')
