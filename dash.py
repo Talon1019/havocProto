@@ -148,46 +148,60 @@ with tab2:
     else:
         st.info(f"No throws for {selected_player}")
 
-    # Overlay catches & throw origins with squares for goals
-    st.subheader(f"📍 {selected_player}'s Catches & Their Throw Origins (Goals as Squares)")
+    import altair as alt
+
+    # --- after you have `player_catches` and `player_throws` ---
+    # build a DataFrame with one row per point (throw or catch)
     actions = player_catches.reset_index(drop=True)
-    # right after you build `actions` in Tab 2
-    goal_actions = actions[actions['result'] == 'Goal']
-    st.write("🚩 Goal events for", selected_player, ":\n", goal_actions[['thrX', 'thrY', 'recX', 'recY']])
+    actions['id'] = actions.index  # unique per throw/catch pair
 
-    n = len(actions)
-    cmap = plt.get_cmap('rainbow')
-    colors = cmap(np.linspace(0, 1, max(n,1)))
+    # melt to long format
+    df_plot = pd.concat([
+        pd.DataFrame({
+            'x': actions['thrX'],
+            'y': actions['thrY'],
+            'type': 'Throw Origin',
+            'id': actions['id']
+        }),
+        pd.DataFrame({
+            'x': actions['recX'],
+            'y': actions['recY'],
+            'type': actions['result'].map(lambda r: 'Goal' if r == 'Goal' else 'Catch'),
+            'id': actions['id']
+        })
+    ], ignore_index=True)
 
-    fig, ax = plt.subplots(figsize=(6, 6))
-    for idx, row in actions.iterrows():
-        color = colors[idx]
-        is_goal = (row['result'] == 'Goal')
+    # define hover selection on the `id` field
+    hover = alt.selection_single(
+        fields=['id'],
+        on='mouseover',
+        empty='all',
+        nearest=False
+    )
 
-        # 1) Plot the throw origin *first* as a star
-        ax.scatter(
-            row['thrX'], row['thrY'],
-            marker='*', s=150,
-            color=color, alpha=0.8,
-            zorder=1
+    # build the chart
+    chart = (
+        alt.Chart(df_plot)
+        .mark_point(filled=True, size=100)
+        .encode(
+            x=alt.X('x:Q', title='Field X (meters)'),
+            y=alt.Y('y:Q', title='Field Y (meters)'),
+            shape=alt.Shape('type:N',
+                            scale=alt.Scale(domain=['Throw Origin', 'Catch', 'Goal'],
+                                            range=['triangle-up', 'circle', 'square'])),
+            color=alt.Color('id:N', legend=None),  # unique color per pair
+            opacity=alt.condition(hover, alt.value(1), alt.value(0.2)),
+            tooltip=['type:N', 'x:Q', 'y:Q']
         )
-
-        # 2) Then plot the catch (circle or square) *on top*
-        catch_marker = 's' if is_goal else 'o'
-        catch_size = 120 if is_goal else 80
-        ax.scatter(
-            row['recX'], row['recY'],
-            marker=catch_marker, s=catch_size,
-            color=color, edgecolor='white', alpha=0.8,
-            zorder=2
+        .add_selection(hover)
+        .properties(
+            width=600,
+            height=600,
+            title=f"Catches & Throw Origins for {selected_player} (hover to highlight)"
         )
+    )
 
-    ax.set_title(f"Catches by {selected_player} & Their Throw Origins")
-    ax.set_xlabel("Field X (meters)")
-    ax.set_ylabel("Field Y (meters)")
-    ax.set_xlim(df['thrX'].min(), df['thrX'].max())
-    ax.set_ylim(df['thrY'].min(), df['thrY'].max() + 20)
-    st.pyplot(fig)
+    st.altair_chart(chart, use_container_width=True)
 
     # Relative catch heatmap
     fig_pcatch_rel, ax_pcatch_rel = plt.subplots()
