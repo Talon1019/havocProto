@@ -90,7 +90,10 @@ with tab2:
     st.markdown("### 🗺️ Field & Throw Position\n_See where throws originate and end, and analyze player tendencies spatially._")
     st.divider()
 
-    # Origin viz
+    # allow toggling raw points on/off for every density map
+    overlay_points = st.checkbox("Overlay raw points on heatmaps", value=False)
+
+    # 1) Origin visualization
     viz_option = st.radio(
         "Visualize throw origins as:",
         ["Heatmap", "Each Throw (Scatter)"], horizontal=True
@@ -98,261 +101,160 @@ with tab2:
     fig, ax = plt.subplots()
     if viz_option == "Heatmap":
         sns.kdeplot(x=df['thrX'], y=df['thrY'], cmap="YlGnBu", shade=True, bw_adjust=1.2, ax=ax)
+        if overlay_points:
+            ax.scatter(df['thrX'], df['thrY'], c='navy', s=30, alpha=0.4, label='Throw origin')
+            ax.legend(loc="upper right")
         ax.set_title("Throw Origin Density")
     else:
         ax.scatter(df['thrX'], df['thrY'], c='darkblue', alpha=0.6, edgecolor='white', s=70)
         ax.set_title("Each Throw Origin (Scatter Plot)")
-    ax.set_xlabel("Field X (width, meters)")
-    ax.set_ylabel("Field Y (length, meters)")
+    ax.set_xlabel("Field X (meters)")
+    ax.set_ylabel("Field Y (meters)")
     st.pyplot(fig)
 
     st.divider()
-    # Absolute completion heatmap
+
+    # 2) Catch/Goal 2D‐histogram heatmap
     st.subheader("📊 Catch/Goal Heatmap (2D Histogram)")
-    fig2, ax2 = plt.subplots(figsize=(8, 6))
+    fig2, ax2 = plt.subplots(figsize=(8,6))
     sns.histplot(
-        x=df_completions['recX'],
-        y=df_completions['recY'],
-        bins=(15, 10),  # you can tweak the number of bins
-        cmap="YlOrRd",
-        cbar=True,
-        cbar_kws={'label': 'Count'},
-        ax=ax2
+        x=df_completions['recX'], y=df_completions['recY'],
+        bins=(15,10), cmap="YlOrRd", cbar=True,
+        cbar_kws={'label':'Count'}, ax=ax2
     )
+    if overlay_points:
+        ax2.scatter(df_completions['recX'], df_completions['recY'],
+                    c='black', s=20, alpha=0.3, label='Catch/Goal')
+        ax2.legend(loc='upper right')
     ax2.set_title("Completion / Goal Location Counts")
     ax2.set_xlabel("Field X (meters)")
     ax2.set_ylabel("Field Y (meters)")
-    ax2.set_aspect('equal', adjustable='box')  # keep field proportions
+    ax2.set_aspect('equal', adjustable='box')
     st.pyplot(fig2)
 
+    st.divider()
+
+    # 3) Smoothed throwaway origin KDE
+    st.subheader("🌫️ Smoothed Throwaway Origin Heatmap")
+    drops = df[df['result']=='Throwaway']
+    fig3, ax3 = plt.subplots(figsize=(8,6))
+    sns.kdeplot(
+        x=drops['thrX'], y=drops['thrY'],
+        cmap="Reds", shade=True,
+        thresh=0.05, bw_adjust=1.0, levels=10, ax=ax3
+    )
+    if overlay_points:
+        ax3.scatter(drops['thrX'], drops['thrY'],
+                    c='darkred', s=40, alpha=0.5, label='Throwaway')
+        ax3.legend(loc='upper right')
+    ax3.set_title("Smoothed Density of Throwaway Origins")
+    ax3.set_xlabel("Field X (meters)")
+    ax3.set_ylabel("Field Y (meters)")
+    ax3.set_aspect('equal', adjustable='box')
+    st.pyplot(fig3)
+
+    st.divider()
+
+    # 4) By Player: relative maps + debug
     st.subheader("By Player: Relative Throw Maps & Debug for Goals")
     all_players = sorted(set(df['thrower'].unique()) | set(df['receiver'].dropna().unique()))
     selected_player = st.selectbox("Select player for individual heatmaps", all_players)
 
-    player_throws = df[df['thrower'] == selected_player]
-    player_catches = df_completions[df_completions['receiver'] == selected_player]
-    st.write(f"🏆 {selected_player} caught **{player_catches['result'].eq('Goal').sum()}** goals")
+    player_throws = df[df['thrower']==selected_player]
+    player_catches = df_completions[df_completions['receiver']==selected_player]
 
-    # Debug #2
-    total_catches = len(player_catches)
-    goal_count = int((player_catches['result'] == 'Goal').sum())
-    st.write(f"🎯 **{selected_player}** has **{total_catches}** catch(es), of which **{goal_count}** {'is' if goal_count==1 else 'are'} Goal{'s' if goal_count!=1 else ''}.")
+    # debug counts
+    num_catches = len(player_catches)
+    num_goals   = int((player_catches['result']=='Goal').sum())
+    st.write(f"🎯 {selected_player} has {num_catches} catch(es), of which {num_goals} are Goals.")
 
-    st.markdown("_Visualizes throws/catches relative to the throw start (origin at (0,0))_")
-    # --- Throwaway Origin Heatmap ---
-    st.subheader("🌫️ Smoothed Throwaway Origin Heatmap with Points")
-
-    # filter throwaways
-    drops = df[df['result'] == 'Throwaway']
-
-    fig, ax = plt.subplots(figsize=(8, 6))
-
-    # 1) smoothed density
-    sns.kdeplot(
-        x=drops['thrX'],
-        y=drops['thrY'],
-        cmap="Reds",
-        shade=True,
-        thresh=0.05,
-        bw_adjust=1.0,
-        levels=10,
-        ax=ax
-    )
-
-    # 2) overlay each throw as a dot
-    ax.scatter(
-        drops['thrX'],
-        drops['thrY'],
-        c='darkred',
-        edgecolor='white',
-        alpha=0.6,
-        s=50,
-        label='Throwaway'
-    )
-
-    ax.set_title("Smoothed Density of Throwaway Origins\n(with individual throws overlaid)")
-    ax.set_xlabel("Field X (meters)")
-    ax.set_ylabel("Field Y (meters)")
-    ax.set_aspect('equal', adjustable='box')
-    ax.legend(loc='upper right')
-
-    st.pyplot(fig)
-
-    # Relative throw heatmap
-    fig_pthrow_rel, ax_pthrow_rel = plt.subplots()
+    st.markdown("_Relative to each throw’s origin (0,0)_")
+    # a) relative throw heatmap
+    fig_rel_throw, ax_rel_throw = plt.subplots()
     if not player_throws.empty:
-        rel_recX = player_throws['recX'] - player_throws['thrX']
-        rel_recY = player_throws['recY'] - player_throws['thrY']
-        sns.kdeplot(x=rel_recX, y=rel_recY, cmap="Blues", shade=True, bw_adjust=1.2, ax=ax_pthrow_rel)
-        ax_pthrow_rel.plot(0, 0, 'ro', markersize=10, label='Origin')
-        ax_pthrow_rel.set_title(f"Throws by {selected_player} (from origin)")
-        ax_pthrow_rel.set_xlabel("Relative X (meters)")
-        ax_pthrow_rel.set_ylabel("Relative Y (meters)")
-        ax_pthrow_rel.legend()
-        st.pyplot(fig_pthrow_rel)
+        relX = player_throws['recX'] - player_throws['thrX']
+        relY = player_throws['recY'] - player_throws['thrY']
+        sns.kdeplot(x=relX, y=relY, cmap="Blues", shade=True, bw_adjust=1.2, ax=ax_rel_throw)
+        if overlay_points:
+            ax_rel_throw.scatter(relX, relY, c='navy', s=30, alpha=0.4)
+        ax_rel_throw.plot(0,0,'ro',markersize=8)
+        ax_rel_throw.set_title(f"Throws by {selected_player} (from origin)")
+        ax_rel_throw.set_xlabel("Relative X (m)")
+        ax_rel_throw.set_ylabel("Relative Y (m)")
+        st.pyplot(fig_rel_throw)
     else:
-        st.info(f"No throws for {selected_player}")
+        st.info("No throws for this player.")
 
-    import altair as alt
-
-    # --- after you have `player_catches` and `player_throws` ---
-    # build a DataFrame with one row per point (throw or catch)
-    actions = player_catches.reset_index(drop=True)
-    actions['id'] = actions.index  # unique per throw/catch pair
-
-    # melt to long format
-    df_plot = pd.concat([
-        pd.DataFrame({
-            'x': actions['thrX'],
-            'y': actions['thrY'],
-            'type': 'Throw Origin',
-            'id': actions['id']
-        }),
-        pd.DataFrame({
-            'x': actions['recX'],
-            'y': actions['recY'],
-            'type': actions['result'].map(lambda r: 'Goal' if r == 'Goal' else 'Catch'),
-            'id': actions['id']
-        })
-    ], ignore_index=True)
-
-    # define hover selection on the `id` field
-    hover = alt.selection_single(
-        fields=['id'],
-        on='mouseover',
-        empty='all',
-        nearest=False
-    )
-
-    # build the chart
-    chart = (
-        alt.Chart(df_plot)
-        .mark_point(filled=True, size=300)  # ↑ bigger points
-        .encode(
-            x=alt.X('x:Q', title='Field X (meters)'),
-            y=alt.Y('y:Q', title='Field Y (meters)'),
-            shape=alt.Shape('type:N',
-                            scale=alt.Scale(domain=['Throw Origin', 'Catch', 'Goal'],
-                                            range=['triangle-up', 'circle', 'square'])),
-            color=alt.Color('id:N',
-                            legend=None,
-                            scale=alt.Scale(scheme='category10')),  # avoids very light colors
-            opacity=alt.condition(hover, alt.value(1), alt.value(0.2)),
-            tooltip=['type:N', 'x:Q', 'y:Q']
-        )
-        .add_selection(hover)
-        .properties(
-            width=600, height=600,
-            title=f"Catches & Throw Origins for {selected_player} (hover to highlight)"
-        )
-        .configure(background='white')
-        .configure_view(fill='white')
-        .configure_title(color='black')  # title black
-        .configure_axis(labelColor='black', titleColor='black')  # axes black
-    )
-
-    st.altair_chart(chart, use_container_width=True)
-
-    # Relative catch heatmap
-    fig_pcatch_rel, ax_pcatch_rel = plt.subplots()
+    # b) relative catch heatmap
+    fig_rel_catch, ax_rel_catch = plt.subplots()
     if not player_catches.empty:
-        rel_recX_c = player_catches['recX'] - player_catches['thrX']
-        rel_recY_c = player_catches['recY'] - player_catches['thrY']
-        sns.kdeplot(x=rel_recX_c, y=rel_recY_c, cmap="Greens", shade=True, bw_adjust=1.2, ax=ax_pcatch_rel)
-        ax_pcatch_rel.plot(0, 0, 'ro', markersize=10, label='Origin')
-        ax_pcatch_rel.set_title(f"Catches by {selected_player} (from origin)")
-        ax_pcatch_rel.set_xlabel("Relative X (meters)")
-        ax_pcatch_rel.set_ylabel("Relative Y (meters)")
-        ax_pcatch_rel.legend()
-        st.pyplot(fig_pcatch_rel)
+        relX_c = player_catches['recX'] - player_catches['thrX']
+        relY_c = player_catches['recY'] - player_catches['thrY']
+        sns.kdeplot(x=relX_c, y=relY_c, cmap="Greens", shade=True, bw_adjust=1.2, ax=ax_rel_catch)
+        if overlay_points:
+            ax_rel_catch.scatter(relX_c, relY_c, c='darkgreen', s=30, alpha=0.4)
+        ax_rel_catch.plot(0,0,'ro',markersize=8)
+        ax_rel_catch.set_title(f"Catches by {selected_player} (from origin)")
+        ax_rel_catch.set_xlabel("Relative X (m)")
+        ax_rel_catch.set_ylabel("Relative Y (m)")
+        st.pyplot(fig_rel_catch)
     else:
-        st.info(f"No completions caught by {selected_player}")
+        st.info("No catches for this player.")
 
     st.divider()
-    # --- RELATIVE COMPLETION % HEATMAP WITH STATS ---
+
+    # 5) Relative completion % heatmap
     st.subheader("🎯 Relative Completion % (by direction/length)")
     if not player_throws.empty:
-        total_throws = len(player_throws)
-        completions   = player_throws['result'].eq('Completion').sum()
-        comp_pct      = completions / total_throws if total_throws > 0 else 0
-        throw_distances = np.sqrt(
-            (player_throws['thrX'] - player_throws['recX'])**2 +
-            (player_throws['thrY'] - player_throws['recY'])**2
-        )
-        avg_throw_distance = throw_distances.mean()
-        longest_throw      = throw_distances.max()
-
-        st.info(
-            f"**{selected_player}**\n"
-            f"- Throws attempted: **{total_throws}**\n"
-            f"- Completions: **{completions}** (Completion %: **{comp_pct:.1%}**)\n"
-            f"- Average throw distance: **{avg_throw_distance:.1f} meters**\n"
-            f"- Longest throw: **{longest_throw:.1f} meters**"
-        )
+        total = len(player_throws)
+        comp  = player_throws['result'].eq('Completion').sum()
+        pct   = comp/total if total>0 else 0
+        st.info(f"- Attempts: {total}  •  Completions: {comp} ({pct:.1%})")
 
         relX = player_throws['recX'] - player_throws['thrX']
         relY = player_throws['recY'] - player_throws['thrY']
-        completed = player_throws['result'] == 'Completion'
+        completed = player_throws['result']=='Completion'
 
-        bin_count     = st.slider("Box size (bigger box = fewer bins)", min_value=3, max_value=15, value=8)
-        debug_scatter = st.checkbox("Show individual throws on heatmap", value=False)
+        bins = st.slider("Bins per axis",3,15,8)
+        heatmap, xedges, yedges = np.histogram2d(relX, relY, bins=bins, range=[[-40,40],[-10,70]])
+        compmap, _, _ = np.histogram2d(relX[completed], relY[completed], bins=[xedges,yedges])
+        pctmap = np.where(heatmap>0, compmap/heatmap, np.nan)
 
-        heatmap, xedges, yedges = np.histogram2d(
-            relX, relY, bins=bin_count, range=[[-40, 40], [-10, 70]]
-        )
-        completed_heatmap, _, _ = np.histogram2d(
-            relX[completed], relY[completed], bins=[xedges, yedges]
-        )
-        completion_pct = np.where(heatmap > 0, completed_heatmap / heatmap, np.nan)
-
-        fig, ax = plt.subplots(figsize=(6,6))
-        cmap2  = plt.get_cmap("viridis")
-        masked = np.ma.masked_where(heatmap == 0, completion_pct)
-        norm   = mcolors.Normalize(vmin=0, vmax=1)
-        c      = ax.pcolormesh(xedges, yedges, masked.T, cmap=cmap2, shading='auto', norm=norm)
-        ax.plot(0, 0, 'ro', markersize=10, label='Origin')
-        fig.colorbar(c, ax=ax, label="Completion %")
-        ax.set_title(f"Completion %: {selected_player} (from origin)")
-        ax.set_xlabel("Relative X (meters)")
-        ax.set_ylabel("Relative Y (meters)")
-
-        if debug_scatter:
-            ax.scatter(relX[completed], relY[completed], color='lime', label='Completions', marker='o')
-            ax.scatter(relX[~completed], relY[~completed], color='red', label='Throwaways', marker='x')
-        ax.legend()
-        st.pyplot(fig)
+        fig_pct, ax_pct = plt.subplots(figsize=(6,6))
+        cmap = plt.get_cmap("viridis")
+        mesh = ax_pct.pcolormesh(xedges, yedges, pctmap.T, cmap=cmap, shading='auto', vmin=0, vmax=1)
+        fig_pct.colorbar(mesh, ax=ax_pct, label="Completion %")
+        if overlay_points:
+            ax_pct.scatter(relX[completed], relY[completed], c='lime', s=30, alpha=0.5)
+            ax_pct.scatter(relX[~completed], relY[~completed], c='red', s=30, alpha=0.5)
+        ax_pct.plot(0,0,'ro',markersize=8)
+        ax_pct.set_title(f"Completion % for {selected_player}")
+        ax_pct.set_xlabel("Relative X (m)")
+        ax_pct.set_ylabel("Relative Y (m)")
+        st.pyplot(fig_pct)
     else:
-        st.info(f"No throws recorded for {selected_player}.")
+        st.info("No throws recorded for this player.")
 
     st.divider()
+
+    # 6) Throw distance distribution & probability
     st.subheader("Throw Distance Distribution")
     df['distance'] = np.sqrt((df['thrX']-df['recX'])**2 + (df['thrY']-df['recY'])**2)
-    st.plotly_chart(px.histogram(
-        df, x='distance', nbins=30,
-        title="Throw Distance Distribution",
-        labels={'distance': 'Throw Distance (meters)', 'count': 'Number of Throws'}
-    ))
+    st.plotly_chart(px.histogram(df, x='distance', nbins=30, labels={'distance':'Throw Distance (m)'}, title="Distance Distribution"))
 
     st.subheader("Completion Probability by Distance")
-    bins = np.arange(0, df['distance'].max() + 5, 5)
-    df['distance_bin'] = pd.cut(df['distance'], bins)
-    prob_by_dist = df.groupby('distance_bin')['result'].apply(lambda x: (x == 'Completion').mean())
-    bin_midpoints = prob_by_dist.index.map(lambda x: x.mid)
-    prob_by_dist_df = pd.DataFrame({
-        "Distance": bin_midpoints,
-        "Completion Probability": prob_by_dist.values
-    })
-    st.line_chart(prob_by_dist_df.set_index("Distance"))
+    bins = np.arange(0, df['distance'].max()+5, 5)
+    df['dist_bin'] = pd.cut(df['distance'], bins)
+    prob = df.groupby('dist_bin')['result'].apply(lambda x: (x=='Completion').mean())
+    mids = prob.index.map(lambda x: x.mid)
+    st.line_chart(pd.DataFrame({'Distance':mids,'Prob':prob.values}).set_index('Distance'))
 
     st.subheader("Throw Direction Analysis")
-    df['direction'] = np.where(df['recY'] > df['thrY'], 'Forward', 'Backward/Other')
+    df['direction'] = np.where(df['recY']>df['thrY'],'Forward','Backward/Other')
     dir_counts = df.groupby('direction')['result'].value_counts().unstack().fillna(0)
     st.dataframe(dir_counts)
-    st.plotly_chart(px.histogram(
-        df, x='direction', color='result', barmode='group',
-        title="Throw Direction Outcomes",
-        labels={'direction':'Throw Direction','count':'Number of Throws'}
-    ))
+    st.plotly_chart(px.histogram(df, x='direction', color='result', barmode='group', title="Throw Direction Outcomes"))
+
 
 # --- TAB 3: TACTICAL INSIGHTS ---
 with tab3:
