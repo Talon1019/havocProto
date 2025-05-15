@@ -186,7 +186,7 @@ with tab2:
     ax.set_xlabel("Field X (meters)")
     ax.set_ylabel("Field Y (meters)")
     ax.set_xlim(df['thrX'].min(), df['thrX'].max())
-    ax.set_ylim(df['thrY'].min(), df['thrY'].max())
+    ax.set_ylim(df['thrY'].min(), df['thrY'].max() + 20)
     st.pyplot(fig)
 
     # Relative catch heatmap
