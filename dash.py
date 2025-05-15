@@ -153,7 +153,7 @@ with tab2:
         shade=True,
         thresh=0.05,  # only show densities above this fraction
         bw_adjust=1.0,  # tweak for more/less smoothing
-        levels=10,  # number of contour levels
+        levels=30,  # number of contour levels
         ax=ax
     )
     ax.set_title("Smoothed Density of Throwaway Origins")
