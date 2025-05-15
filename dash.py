@@ -139,6 +139,23 @@ with tab2:
     st.write(f"🎯 **{selected_player}** has **{total_catches}** catch(es), of which **{goal_count}** {'is' if goal_count==1 else 'are'} Goal{'s' if goal_count!=1 else ''}.")
 
     st.markdown("_Visualizes throws/catches relative to the throw start (origin at (0,0))_")
+    st.subheader("🔥 Throwaway Origin Hexbin")
+    drops = df[df['result'] == 'Throwaway']
+
+    fig3, ax3 = plt.subplots(figsize=(8, 6))
+    hb = ax3.hexbin(
+        drops['thrX'], drops['thrY'],
+        gridsize=25,
+        cmap='OrRd',
+        mincnt=1
+    )
+    fig3.colorbar(hb, ax=ax3, label='Throwaway Count')
+    ax3.set_title("Where Throwaways Originate")
+    ax3.set_xlabel("Field X (meters)")
+    ax3.set_ylabel("Field Y (meters)")
+    ax3.set_aspect('equal', adjustable='box')
+    st.pyplot(fig3)
+
     # Relative throw heatmap
     fig_pthrow_rel, ax_pthrow_rel = plt.subplots()
     if not player_throws.empty:
