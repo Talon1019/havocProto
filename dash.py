@@ -131,23 +131,26 @@ with tab2:
     else:
         st.info(f"No throws for {selected_player}")
 
-    st.subheader(f"🎯 Absolute Catch Locations for {selected_player}")
-    fig_abs, ax_abs = plt.subplots(figsize=(6, 6))
+    st.subheader(f"📍 Absolute Catch Dots for {selected_player}")
+    fig_dots, ax_dots = plt.subplots(figsize=(6, 6))
     if not player_catches.empty:
-        sns.kdeplot(
-            x=player_catches['recX'],
-            y=player_catches['recY'],
-            cmap="Purples",
-            shade=True,
-            bw_adjust=1.2,
-            ax=ax_abs
+        ax_dots.scatter(
+            player_catches['recX'],
+            player_catches['recY'],
+            alpha=0.7,
+            edgecolor='white',
+            s=60
         )
-        ax_abs.set_title(f"Catches by {selected_player} (Field Coordinates)")
-        ax_abs.set_xlabel("Field X (meters)")
-        ax_abs.set_ylabel("Field Y (meters)")
-        st.pyplot(fig_abs)
+        ax_dots.set_title(f"Catches by {selected_player} (Field Coordinates)")
+        ax_dots.set_xlabel("Field X (meters)")
+        ax_dots.set_ylabel("Field Y (meters)")
+        # optionally draw field boundaries:
+        ax_dots.set_xlim(df['thrX'].min(), df['thrX'].max())
+        ax_dots.set_ylim(df['thrY'].min(), df['thrY'].max())
+        st.pyplot(fig_dots)
     else:
         st.info(f"No completions caught by {selected_player}")
+
     # Relative catch heatmap
     fig_pcatch_rel, ax_pcatch_rel = plt.subplots()
     if not player_catches.empty:
