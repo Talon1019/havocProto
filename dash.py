@@ -125,6 +125,7 @@ with tab2:
 
     player_throws = df[df['thrower'] == selected_player]
     player_catches = df_completions[df_completions['receiver'] == selected_player]
+    st.write(f"🏆 {selected_player} caught **{player_catches['result'].eq('Goal').sum()}** goals")
 
     # Debug #2
     total_catches = len(player_catches)
