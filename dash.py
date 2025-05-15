@@ -140,24 +140,27 @@ with tab2:
 
     st.markdown("_Visualizes throws/catches relative to the throw start (origin at (0,0))_")
     # --- Throwaway Origin Heatmap ---
-    st.subheader("🔥 Throwaway Origin Heatmap")
-    drops = df[df['result'] == 'Throwaway']  # filter throwaways
+    st.subheader("🌫️ Smooth Throwaway Origin Heatmap")
 
-    fig3, ax3 = plt.subplots(figsize=(8, 6))
-    sns.histplot(
+    # filter throwaways
+    drops = df[df['result'] == 'Throwaway']
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    sns.kdeplot(
         x=drops['thrX'],
         y=drops['thrY'],
-        bins=(4, 20),  # tweak for resolution
-        cmap="OrRd",
-        cbar=True,
-        cbar_kws={'label': 'Throwaway Count'},
-        ax=ax3
+        cmap="Reds",  # choose a red palette for throwaways
+        shade=True,
+        thresh=0.05,  # only show densities above this fraction
+        bw_adjust=1.0,  # tweak for more/less smoothing
+        levels=10,  # number of contour levels
+        ax=ax
     )
-    ax3.set_title("Where Throwaways Originate")
-    ax3.set_xlabel("Field X (meters)")
-    ax3.set_ylabel("Field Y (meters)")
-    ax3.set_aspect('equal', adjustable='box')
-    st.pyplot(fig3)
+    ax.set_title("Smoothed Density of Throwaway Origins")
+    ax.set_xlabel("Field X (meters)")
+    ax.set_ylabel("Field Y (meters)")
+    ax.set_aspect('equal', adjustable='box')
+    st.pyplot(fig)
 
     # Relative throw heatmap
     fig_pthrow_rel, ax_pthrow_rel = plt.subplots()
