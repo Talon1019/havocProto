@@ -131,25 +131,38 @@ with tab2:
     else:
         st.info(f"No throws for {selected_player}")
 
-    st.subheader(f"📍 Absolute Catch Dots for {selected_player}")
-    fig_dots, ax_dots = plt.subplots(figsize=(6, 6))
-    if not player_catches.empty:
-        ax_dots.scatter(
-            player_catches['recX'],
-            player_catches['recY'],
-            alpha=0.7,
-            edgecolor='white',
-            s=60
+    st.subheader(f"📍 Colored Throws & Catches for {selected_player}")
+    fig_overlay, ax_overlay = plt.subplots(figsize=(6, 6))
+
+    # only look at completed throws so we have both thrX/Y and recX/Y
+    actions = player_throws[player_throws['result'] == 'Completion'].reset_index(drop=True)
+    n = len(actions)
+
+    # pick a colormap and generate n distinct colors
+    cmap = plt.get_cmap('rainbow')
+    colors = cmap(np.linspace(0, 1, n))
+
+    # plot each origin+catch with its own color
+    for i, row in actions.iterrows():
+        ax_overlay.scatter(
+            row['thrX'], row['thrY'],
+            marker='*', s=100, color=colors[i],
+            alpha=0.8, label='_nolegend_'
         )
-        ax_dots.set_title(f"Catches by {selected_player} (Field Coordinates)")
-        ax_dots.set_xlabel("Field X (meters)")
-        ax_dots.set_ylabel("Field Y (meters)")
-        # optionally draw field boundaries:
-        ax_dots.set_xlim(df['thrX'].min(), df['thrX'].max())
-        ax_dots.set_ylim(df['thrY'].min(), df['thrY'].max())
-        st.pyplot(fig_dots)
-    else:
-        st.info(f"No completions caught by {selected_player}")
+        ax_overlay.scatter(
+            row['recX'], row['recY'],
+            marker='o', s=60, edgecolor='white',
+            color=colors[i], alpha=0.6, label='_nolegend_'
+        )
+
+    # optional: draw field bounds
+    ax_overlay.set_xlim(df['thrX'].min(), df['thrX'].max())
+    ax_overlay.set_ylim(df['thrY'].min(), df['thrY'].max())
+
+    ax_overlay.set_title(f"Each Throw & Catch by {selected_player}")
+    ax_overlay.set_xlabel("Field X (meters)")
+    ax_overlay.set_ylabel("Field Y (meters)")
+    st.pyplot(fig_overlay)
 
     # Relative catch heatmap
     fig_pcatch_rel, ax_pcatch_rel = plt.subplots()
