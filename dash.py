@@ -198,7 +198,7 @@ with tab2:
             width=600, height=600,
             title=f"Catches & Throw Origins for {selected_player} (hover to highlight)"
         )
-        .configure(background='white', text='black')  # make the overall background white
+        .configure(background='white')  # make the overall background white
         .configure_view(fill='white')  # make the plot panel itself white
     )
 
