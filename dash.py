@@ -131,38 +131,40 @@ with tab2:
     else:
         st.info(f"No throws for {selected_player}")
 
-    st.subheader(f"📍 Colored Throws & Catches for {selected_player}")
-    fig_overlay, ax_overlay = plt.subplots(figsize=(6, 6))
+    st.subheader(f"📍 {selected_player}'s Catches & Their Throw Origins")
 
-    # only look at completed throws so we have both thrX/Y and recX/Y
-    actions = player_throws[player_throws['result'] == 'Completion'].reset_index(drop=True)
+    # only look at that player’s completions
+    actions = player_catches.reset_index(drop=True)
     n = len(actions)
-
-    # pick a colormap and generate n distinct colors
     cmap = plt.get_cmap('rainbow')
     colors = cmap(np.linspace(0, 1, n))
 
-    # plot each origin+catch with its own color
+    fig, ax = plt.subplots(figsize=(6, 6))
+
     for i, row in actions.iterrows():
-        ax_overlay.scatter(
-            row['thrX'], row['thrY'],
-            marker='*', s=100, color=colors[i],
-            alpha=0.8, label='_nolegend_'
-        )
-        ax_overlay.scatter(
+        # catch location as filled circle
+        ax.scatter(
             row['recX'], row['recY'],
-            marker='o', s=60, edgecolor='white',
-            color=colors[i], alpha=0.6, label='_nolegend_'
+            marker='o', s=80,
+            color=colors[i], edgecolor='white',
+            alpha=0.8,
+            label='_nolegend_'
+        )
+        # corresponding throw origin as star
+        ax.scatter(
+            row['thrX'], row['thrY'],
+            marker='*', s=150,
+            color=colors[i], alpha=0.8,
+            label='_nolegend_'
         )
 
-    # optional: draw field bounds
-    ax_overlay.set_xlim(df['thrX'].min(), df['thrX'].max())
-    ax_overlay.set_ylim(df['thrY'].min(), df['thrY'].max())
-
-    ax_overlay.set_title(f"Each Throw & Catch by {selected_player}")
-    ax_overlay.set_xlabel("Field X (meters)")
-    ax_overlay.set_ylabel("Field Y (meters)")
-    st.pyplot(fig_overlay)
+    ax.set_title(f"Catches by {selected_player} & Their Throw Origins")
+    ax.set_xlabel("Field X (meters)")
+    ax.set_ylabel("Field Y (meters)")
+    # optional: draw field boundaries
+    ax.set_xlim(df['thrX'].min(), df['thrX'].max())
+    ax.set_ylim(df['thrY'].min(), df['thrY'].max())
+    st.pyplot(fig)
 
     # Relative catch heatmap
     fig_pcatch_rel, ax_pcatch_rel = plt.subplots()
