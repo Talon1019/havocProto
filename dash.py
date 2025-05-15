@@ -108,15 +108,21 @@ with tab2:
 
     st.divider()
     # Absolute completion heatmap
-    st.subheader("Heatmap of Completions/Goals")
-    fig2, ax2 = plt.subplots()
-    sns.kdeplot(
-        x=df_completions['recX'], y=df_completions['recY'],
-        cmap="YlOrRd", shade=True, bw_adjust=1.2, ax=ax2
+    st.subheader("📊 Catch/Goal Heatmap (2D Histogram)")
+    fig2, ax2 = plt.subplots(figsize=(8, 6))
+    sns.histplot(
+        x=df_completions['recX'],
+        y=df_completions['recY'],
+        bins=(30, 20),  # you can tweak the number of bins
+        cmap="YlOrRd",
+        cbar=True,
+        cbar_kws={'label': 'Count'},
+        ax=ax2
     )
-    ax2.set_title("Completion/Goal Location Density")
-    ax2.set_xlabel("Field X (width, meters)")
-    ax2.set_ylabel("Field Y (length, meters)")
+    ax2.set_title("Completion / Goal Location Counts")
+    ax2.set_xlabel("Field X (meters)")
+    ax2.set_ylabel("Field Y (meters)")
+    ax2.set_aspect('equal', adjustable='box')  # keep field proportions
     st.pyplot(fig2)
 
     st.subheader("By Player: Relative Throw Maps & Debug for Goals")
