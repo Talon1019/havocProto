@@ -37,7 +37,10 @@ if game_option != "All Games":
 
 df_receivers = df.dropna(subset=['receiver'])
 # include both regular completions and goals
-df_completions = df[df['result'].isin(['Completion', 'Goal'])]
+# include both normal completions and goals
+goal_labels = ['Completion', 'Goal']
+df_completions = df[df['result'].isin(goal_labels)]
+
 st.write("All result types:", df['result'].unique())
 
 # --- MAIN TABS ---
@@ -144,29 +147,33 @@ with tab2:
     fig, ax = plt.subplots(figsize=(6, 6))
 
     for i, row in actions.iterrows():
-        # choose square for goals, circle otherwise
-        catch_marker = 's' if row['result'] == 'Goal' else 'o'
-        catch_size = 100 if row['result'] == 'Goal' else 80
+        # define which result‐types count as a “goal”
+        goal_labels = {'Goal'}
 
-        # plot catch
-        ax.scatter(
-            row['recX'], row['recY'],
-            marker=catch_marker,
-            s=catch_size,
-            color=colors[i],
-            edgecolor='white',
-            alpha=0.8,
-            label='_nolegend_'
-        )
-        # plot throw origin
-        ax.scatter(
-            row['thrX'], row['thrY'],
-            marker='*',
-            s=150,
-            color=colors[i],
-            alpha=0.8,
-            label='_nolegend_'
-        )
+        for i, row in actions.iterrows():
+            # square for real goals, circle otherwise
+            catch_marker = 's' if row['result'] in goal_labels else 'o'
+            catch_size = 100 if row['result'] in goal_labels else 80
+
+            # plot catch
+            ax.scatter(
+                row['recX'], row['recY'],
+                marker=catch_marker,
+                s=catch_size,
+                color=colors[i],
+                edgecolor='white',
+                alpha=0.8,
+                label='_nolegend_'
+            )
+            # plot throw origin
+            ax.scatter(
+                row['thrX'], row['thrY'],
+                marker='*',
+                s=150,
+                color=colors[i],
+                alpha=0.8,
+                label='_nolegend_'
+            )
 
     ax.set_title(f"Catches by {selected_player} & Their Throw Origins")
     ax.set_xlabel("Field X (meters)")
