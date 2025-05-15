@@ -151,27 +151,35 @@ with tab2:
     # Overlay catches & throw origins with squares for goals
     st.subheader(f"📍 {selected_player}'s Catches & Their Throw Origins (Goals as Squares)")
     actions = player_catches.reset_index(drop=True)
+    # right after you build `actions` in Tab 2
+    goal_actions = actions[actions['result'] == 'Goal']
+    st.write("🚩 Goal events for", selected_player, ":\n", goal_actions[['thrX', 'thrY', 'recX', 'recY']])
+
     n = len(actions)
     cmap = plt.get_cmap('rainbow')
     colors = cmap(np.linspace(0, 1, max(n,1)))
 
-    fig, ax = plt.subplots(figsize=(6,6))
+    fig, ax = plt.subplots(figsize=(6, 6))
     for idx, row in actions.iterrows():
+        color = colors[idx]
         is_goal = (row['result'] == 'Goal')
-        catch_marker = 's' if is_goal else 'o'
-        catch_size   = 120  if is_goal else 80
 
-        # plot catch
-        ax.scatter(
-            row['recX'], row['recY'],
-            marker=catch_marker, s=catch_size,
-            color=colors[idx], edgecolor='white', alpha=0.8
-        )
-        # plot throw origin
+        # 1) Plot the throw origin *first* as a star
         ax.scatter(
             row['thrX'], row['thrY'],
             marker='*', s=150,
-            color=colors[idx], alpha=0.8
+            color=color, alpha=0.8,
+            zorder=1
+        )
+
+        # 2) Then plot the catch (circle or square) *on top*
+        catch_marker = 's' if is_goal else 'o'
+        catch_size = 120 if is_goal else 80
+        ax.scatter(
+            row['recX'], row['recY'],
+            marker=catch_marker, s=catch_size,
+            color=color, edgecolor='white', alpha=0.8,
+            zorder=2
         )
 
     ax.set_title(f"Catches by {selected_player} & Their Throw Origins")
