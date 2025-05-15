@@ -182,14 +182,16 @@ with tab2:
     # build the chart
     chart = (
         alt.Chart(df_plot)
-        .mark_point(filled=True, size=100)
+        .mark_point(filled=True, size=300)  # ↑ bigger points
         .encode(
             x=alt.X('x:Q', title='Field X (meters)'),
             y=alt.Y('y:Q', title='Field Y (meters)'),
             shape=alt.Shape('type:N',
                             scale=alt.Scale(domain=['Throw Origin', 'Catch', 'Goal'],
                                             range=['triangle-up', 'circle', 'square'])),
-            color=alt.Color('id:N', legend=None),
+            color=alt.Color('id:N',
+                            legend=None,
+                            scale=alt.Scale(scheme='category10')),  # avoids very light colors
             opacity=alt.condition(hover, alt.value(1), alt.value(0.2)),
             tooltip=['type:N', 'x:Q', 'y:Q']
         )
@@ -198,8 +200,10 @@ with tab2:
             width=600, height=600,
             title=f"Catches & Throw Origins for {selected_player} (hover to highlight)"
         )
-        .configure(background='white')  # make the overall background white
-        .configure_view(fill='white')  # make the plot panel itself white
+        .configure(background='white')
+        .configure_view(fill='white')
+        .configure_title(color='black')  # title black
+        .configure_axis(labelColor='black', titleColor='black')  # axes black
     )
 
     st.altair_chart(chart, use_container_width=True)
