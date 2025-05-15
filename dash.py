@@ -113,7 +113,7 @@ with tab2:
     sns.histplot(
         x=df_completions['recX'],
         y=df_completions['recY'],
-        bins=(30, 20),  # you can tweak the number of bins
+        bins=(15, 10),  # you can tweak the number of bins
         cmap="YlOrRd",
         cbar=True,
         cbar_kws={'label': 'Count'},
