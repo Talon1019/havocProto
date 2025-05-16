@@ -226,20 +226,16 @@ with tab2:
     st.write(f"🎯 {selected_player} has {num_catches} catch(es), of which {num_goals} are Goals.")
 
     st.markdown("_Relative to each throw’s origin (0,0)_")
-    # ─── BUILD plot_df ───
+    # 5) By Player: interactive catches & throw origins for selected thrower
+    st.subheader("By Player: Catches & Throw Origins")
+    all_players = sorted(set(df['thrower']) | set(df['receiver'].dropna()))
+    selected_player = st.selectbox("Select player (as thrower)", all_players)
+
+    # Build a DataFrame of only that player's completions
+    player_plays = df_completions[df_completions['thrower'] == selected_player].reset_index(drop=True)
     rows = []
-    for i, row in player_catches.reset_index(drop=True).iterrows():
-        # catch point
-        rows.append({
-            'pair': i,
-            'x': row['recX'],
-            'y': row['recY'],
-            'role': 'catch',
-            'marker': 'high' if row['recY'] > 100 else 'low',
-            'thrower': row['thrower'],
-            'point': row['point']
-        })
-        # origin point
+    for i, row in player_plays.iterrows():
+        # origin (star)
         rows.append({
             'pair': i,
             'x': row['thrX'],
@@ -249,74 +245,64 @@ with tab2:
             'thrower': row['thrower'],
             'point': row['point']
         })
+        # catch (circle/square)
+        rows.append({
+            'pair': i,
+            'x': row['recX'],
+            'y': row['recY'],
+            'role': 'catch',
+            'marker': 'high' if row['recY'] > 100 else 'low',
+            'thrower': row['thrower'],
+            'point': row['point']
+        })
     plot_df = pd.DataFrame(rows)
 
     import altair as alt
 
     st.divider()
-    st.subheader(f"🎯 Catches & Throw Origins for {selected_player} (Interactive)")
+    st.subheader(f"🎯 Catches & Throw Origins — {selected_player}")
 
     if plot_df.empty:
         st.info(f"No catches recorded for {selected_player}.")
     else:
-        # hover highlights one pair, dims all others
         hover = alt.selection_single(fields=['pair'], on='mouseover', empty='none')
 
-        # catch layer: bigger points, fully filled
-        catch_layer = alt.Chart(plot_df[plot_df.role == 'catch']).mark_point(
-            size=250,  # bigger dots
-            filled=True  # solid fill
-        ).encode(
-            x=alt.X('x:Q', title='Field X (m)'),
-            y=alt.Y('y:Q', title='Field Y (m)'),
+        catch_layer = alt.Chart(plot_df[plot_df.role == 'catch']) \
+            .mark_point(size=150, filled=True) \
+            .encode(
+            x='x:Q',
+            y='y:Q',
             color=alt.Color('pair:N', legend=None),
             shape=alt.Shape('marker:N',
-                            scale=alt.Scale(domain=['low', 'high'], range=['circle', 'square']),
+                            scale=alt.Scale(domain=['low', 'high'],
+                                            range=['circle', 'square']),
                             legend=None),
             opacity=alt.condition(hover, alt.value(1), alt.value(0.2)),
-            tooltip=[
-                alt.Tooltip('role:N', title='Role'),
-                alt.Tooltip('thrower:N', title='Thrower'),
-                alt.Tooltip('point:Q', title='Point')
-            ]
+            tooltip=['role', 'thrower', 'point']
         )
 
-        # origin layer: smaller stars
-        origin_layer = alt.Chart(plot_df[plot_df.role == 'origin']).mark_text(
-            text='★',
-            size=25  # reduced from 300
-        ).encode(
+        origin_layer = alt.Chart(plot_df[plot_df.role == 'origin']) \
+            .mark_text(text='★', size=80) \
+            .encode(
             x='x:Q',
             y='y:Q',
             color=alt.Color('pair:N', legend=None),
             opacity=alt.condition(hover, alt.value(1), alt.value(0.2)),
-            tooltip=[
-                alt.Tooltip('role:N', title='Role'),
-                alt.Tooltip('thrower:N', title='Thrower'),
-                alt.Tooltip('point:Q', title='Point')
-            ]
+            tooltip=['role', 'thrower', 'point']
         )
 
-        # combine and style
         chart = alt.layer(catch_layer, origin_layer) \
             .add_selection(hover) \
-            .properties(
-            width=500,  # ← narrower
-            height=400,  # you can shrink height too
-            title=f"Catches & Throw Origins — {selected_player}"
-        ) \
+            .properties(width=500, height=400,
+                        title=f"Catches & Throw Origins — {selected_player}") \
             .configure(background='white') \
             .configure_view(fill='white', stroke='lightgrey') \
-            .configure_axis(
-            grid=True, gridColor='lightgrey',
-            labelColor='black', titleColor='black'
-        ) \
+            .configure_axis(grid=True, gridColor='lightgrey',
+                            labelColor='black', titleColor='black') \
             .configure_title(color='black') \
             .configure_legend(labelColor='black', titleColor='black')
 
-        # render at its fixed size
         st.altair_chart(chart, use_container_width=False)
-
     # a) relative throw heatmap
     fig_rel_throw, ax_rel_throw = plt.subplots()
     if not player_throws.empty:
