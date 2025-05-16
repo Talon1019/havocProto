@@ -135,51 +135,56 @@ with tab2:
     st.divider()
     st.divider()
 
-    from sklearn.linear_model import LogisticRegression
-
     st.divider()
-    st.subheader("🤖 Modelled Scoring Probability (5×10 Grid)")
+    st.subheader("📊 Empirical Scoring Probability (5×10 Grid)")
 
     # 1) flag each throw by whether its point ended in a goal
     end_df = df.groupby('point').last().reset_index()[['point', 'result']]
     end_df['scored'] = (end_df['result'] == 'Goal').astype(int)
     df_scoring = df.merge(end_df[['point', 'scored']], on='point', how='left')
 
-    # 2) train logistic on origin → scored
-    X = df_scoring[['thrX', 'thrY']].values
-    y = df_scoring['scored'].values
-    model = LogisticRegression(max_iter=1000)
-    model.fit(X, y)
+    # 2) define 5×10 bin edges over thrX/thrY
+    x_min, x_max = df_scoring['thrX'].min(), df_scoring['thrX'].max()
+    y_min, y_max = df_scoring['thrY'].min(), df_scoring['thrY'].max()
+    x_edges = np.linspace(x_min, x_max, 6)  # 5 bins → 6 edges
+    y_edges = np.linspace(y_min, y_max, 11)  # 10 bins → 11 edges
 
-    # 3) set up 5×10 grid
-    nx, ny = 5, 10
-    x_min, x_max = df['thrX'].min(), df['thrX'].max()
-    y_min, y_max = df['thrY'].min(), df['thrY'].max()
-    x_centers = np.linspace(x_min, x_max, nx)
-    y_centers = np.linspace(y_min, y_max, ny)
-    XX, YY = np.meshgrid(x_centers, y_centers)
-    grid = np.column_stack([XX.ravel(), YY.ravel()])
+    # 3) get total throws & total goals per cell
+    total_counts, _, _ = np.histogram2d(
+        df_scoring['thrX'], df_scoring['thrY'],
+        bins=[x_edges, y_edges]
+    )
+    goal_counts, _, _ = np.histogram2d(
+        df_scoring['thrX'], df_scoring['thrY'],
+        bins=[x_edges, y_edges],
+        weights=df_scoring['scored']
+    )
 
-    # 4) predict P(goal) at each cell
-    probs = model.predict_proba(grid)[:, 1].reshape(ny, nx)
+    # 4) compute cell‐wise goal probability
+    prob_map = np.where(total_counts > 0, goal_counts / total_counts, np.nan)
 
-    # 5) plot
+    # 5) plot with percentages in each cell
     fig, ax = plt.subplots(figsize=(8, 6))
     mesh = ax.pcolormesh(
-        np.linspace(x_min, x_max, nx + 1),
-        np.linspace(y_min, y_max, ny + 1),
-        probs, cmap='coolwarm', shading='auto', vmin=0, vmax=1
+        x_edges, y_edges,
+        prob_map.T,  # transpose for pcolormesh
+        cmap='viridis', shading='auto',
+        vmin=0, vmax=1
     )
-    # annotate each center with the single "XX%"
-    for i in range(nx):
-        for j in range(ny):
-            ax.text(
-                x_centers[i], y_centers[j],
-                f"{probs[j, i] * 100:.0f}%",
-                ha='center', va='center', fontsize=8,
-                color='white' if probs[j, i] > 0.5 else 'black'
-            )
-    ax.set_title("Predicted P(Goal) by Throw Origin (5×10 Grid)")
+    # compute centers for annotation
+    x_centers = (x_edges[:-1] + x_edges[1:]) / 2
+    y_centers = (y_edges[:-1] + y_edges[1:]) / 2
+    for ix, cx in enumerate(x_centers):
+        for iy, cy in enumerate(y_centers):
+            p = prob_map[ix, iy]
+            if not np.isnan(p):
+                ax.text(
+                    cx, cy,
+                    f"{p * 100:.0f}%",
+                    ha='center', va='center', fontsize=8,
+                    color='white' if p > 0.5 else 'black'
+                )
+    ax.set_title("Empirical P(Goal) by Throw Origin (5×10 Grid)")
     ax.set_xlabel("Field X (m)")
     ax.set_ylabel("Field Y (m)")
     fig.colorbar(mesh, ax=ax, label="P(Goal)")
