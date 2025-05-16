@@ -298,27 +298,24 @@ with tab2:
         )
 
         # combine and style
-        chart = alt.layer(catch_layer, origin_layer).add_selection(hover).properties(
-            width=700,
-            height=500,
-            title=f"Catches & Throw Origins — {selected_player}",
-            background='white'  # white overall background
-        ).configure_view(
-            fill='white',  # white inside plotting area
-            stroke='lightgrey'  # light-grey border
-        ).configure_axis(
-            grid=True,
-            gridColor='lightgrey',
-            labelColor='black',
-            titleColor='black'
-        ).configure_title(
-            color='black'
-        ).configure_legend(
-            labelColor='black',
-            titleColor='black'
-        )
+        chart = alt.layer(catch_layer, origin_layer) \
+            .add_selection(hover) \
+            .properties(
+            width=500,  # ← narrower
+            height=400,  # you can shrink height too
+            title=f"Catches & Throw Origins — {selected_player}"
+        ) \
+            .configure(background='white') \
+            .configure_view(fill='white', stroke='lightgrey') \
+            .configure_axis(
+            grid=True, gridColor='lightgrey',
+            labelColor='black', titleColor='black'
+        ) \
+            .configure_title(color='black') \
+            .configure_legend(labelColor='black', titleColor='black')
 
-        st.altair_chart(chart, use_container_width=True)
+        # render at its fixed size
+        st.altair_chart(chart, use_container_width=False)
 
     # a) relative throw heatmap
     fig_rel_throw, ax_rel_throw = plt.subplots()
