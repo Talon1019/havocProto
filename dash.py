@@ -133,61 +133,58 @@ with tab2:
     st.pyplot(fig2)
 
     st.divider()
-    # --- Scoring Probability Surface (Discrete 60×60 Grid) ---
     st.divider()
-    st.subheader("🎯 Predicted Scoring Probability by Catch Location")
+    st.subheader("⚽ Scoring Probability by Throw Origin")
 
-    # 1) prepare your catch → goal labels
-    df_catch = df.dropna(subset=['recX', 'recY']).copy()
-    df_catch['is_goal'] = (df_catch['result'] == 'Goal').astype(int)
+    # 1) build a point-level goal flag
+    #   last event of each point -> did it end in a Goal?
+    end_df = df.groupby('point').last().reset_index()[['point','result']]
+    end_df['scored'] = (end_df['result'] == 'Goal').astype(int)
+    df_scoring = df.merge(end_df[['point','scored']], on='point', how='left')
 
-    # 2) train logistic regression
-    from sklearn.linear_model import LogisticRegression
+    # 2) define your grid
+    nx, ny = 15, 10
+    x_min, x_max = df_scoring['thrX'].min(), df_scoring['thrX'].max()
+    y_min, y_max = df_scoring['thrY'].min(), df_scoring['thrY'].max()
+    x_edges = np.linspace(x_min, x_max, nx+1)
+    y_edges = np.linspace(y_min, y_max, ny+1)
 
-    model = LogisticRegression()
-    model.fit(df_catch[['recX', 'recY']], df_catch['is_goal'])
-
-    # 3) build 61 “edge” coordinates on each axis (for 60 cells)
-    x_min, x_max = df_catch['recX'].min(), df_catch['recX'].max()
-    y_min, y_max = df_catch['recY'].min(), df_catch['recY'].max()
-    x_edges = np.linspace(x_min, x_max, 61)
-    y_edges = np.linspace(y_min, y_max, 61)
-
-    # 4) compute the 60×60 “center” points where we predict
-    x_centers = (x_edges[:-1] + x_edges[1:]) / 2
-    y_centers = (y_edges[:-1] + y_edges[1:]) / 2
-    xxc, yyc = np.meshgrid(x_centers, y_centers)
-
-    # 5) predict score‐prob at each center, then reshape to 60×60
-    probs = model.predict_proba(
-        np.c_[xxc.ravel(), yyc.ravel()]
-    )[:, 1].reshape(xxc.shape)
-
-    # 6) plot with pcolormesh using the edge arrays
-    fig_prob, ax_prob = plt.subplots(figsize=(8, 6))
-    mesh = ax_prob.pcolormesh(
-        x_edges, y_edges, probs,
-        cmap="RdYlGn_r",
-        shading="flat",  # exact cell coloring
-        edgecolors="lightgray",  # draw grid lines
-        linewidth=0.5,
-        vmin=0, vmax=1
+    # 3) histogram counts and weighted sums
+    total_counts, _, _ = np.histogram2d(
+        df_scoring['thrX'], df_scoring['thrY'],
+        bins=[x_edges, y_edges]
     )
-    fig_prob.colorbar(mesh, ax=ax_prob, label="P(Score)")
+    goal_counts, _, _ = np.histogram2d(
+        df_scoring['thrX'], df_scoring['thrY'],
+        bins=[x_edges, y_edges],
+        weights=df_scoring['scored']
+    )
 
-    ax_prob.set_title("Score Probability Surface")
-    ax_prob.set_xlabel("Field X (m)")
-    ax_prob.set_ylabel("Field Y (m)")
-    ax_prob.set_aspect('equal', 'box')
+    # 4) compute probabilities
+    prob_map = np.where(total_counts>0, goal_counts/total_counts, np.nan)
 
-    # 7) optional: overlay raw catch points
-    if overlay_points:
-        ax_prob.scatter(
-            df_catch['recX'], df_catch['recY'],
-            c='black', s=10, alpha=0.2
-        )
-
-    st.pyplot(fig_prob)
+    # 5) plot with percentages
+    fig4, ax4 = plt.subplots(figsize=(8,6))
+    mesh = ax4.pcolormesh(
+        x_edges, y_edges, prob_map.T,
+        cmap='coolwarm', shading='auto', vmin=0, vmax=1
+    )
+    # annotate each cell
+    for i in range(nx):
+        for j in range(ny):
+            if not np.isnan(prob_map[i,j]):
+                cx = (x_edges[i] + x_edges[i+1]) / 2
+                cy = (y_edges[j] + y_edges[j+1]) / 2
+                ax4.text(
+                    cx, cy,
+                    f"{prob_map[i,j]*100:.0f}%",
+                    ha='center', va='center', fontsize=8, color='white'
+                )
+    ax4.set_title("Scoring Probability by Throw Origin")
+    ax4.set_xlabel("Field X (meters)")
+    ax4.set_ylabel("Field Y (meters)")
+    fig4.colorbar(mesh, ax=ax4, label="P(Goal after this throw)")
+    st.pyplot(fig4)
 
     # 3) Smoothed throwaway origin KDE
     st.subheader("🌫️ Smoothed Throwaway Origin Heatmap")
