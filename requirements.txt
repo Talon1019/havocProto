@@ -4,4 +4,4 @@ pandas
 numpy
 seaborn
 plotly
-sklearn.linear_model
+scikit-learn
