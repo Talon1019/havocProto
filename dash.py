@@ -250,72 +250,74 @@ with tab2:
         })
     plot_df = pd.DataFrame(rows)
 
-    import plotly.express as px
+    import altair as alt
 
     st.divider()
-    st.subheader("🎯 Catches & Throw Origins for " + selected_player)
+    st.subheader(f"🎯 Catches & Throw Origins for {selected_player} (Interactive)")
 
-    # 1) filter to that player’s catches (i.e. completions where they were the receiver)
-    df_c = df_completions[df_completions['receiver'] == selected_player].reset_index(drop=True)
-    if df_c.empty:
-        st.info(f"No catches found for {selected_player}.")
+    if plot_df.empty:
+        st.info(f"No catches recorded for {selected_player}.")
     else:
-        # 2) build a long DataFrame with one row per event (origin & catch)
-        rows = []
-        for i, row in df_c.iterrows():
-            # catch point
-            rows.append({
-                'pair': i,
-                'x': row['recX'],
-                'y': row['recY'],
-                'role': 'catch',
-                'marker': 'high' if row['recY'] > 100 else 'low',
-                'thrower': row['thrower'],
-                'point': row['point']
-            })
-            # origin point
-            rows.append({
-                'pair': i,
-                'x': row['thrX'],
-                'y': row['thrY'],
-                'role': 'origin',
-                'marker': 'origin',
-                'thrower': row['thrower'],
-                'point': row['point']
-            })
-        plot_df = pd.DataFrame(rows)
+        # hover highlights one pair, dims all others
+        hover = alt.selection_single(fields=['pair'], on='mouseover', empty='none')
 
-        # 3) map our marker categories → actual Plotly symbols
-        symbol_map = {
-            'origin': 'star',
-            'low': 'circle',
-            'high': 'square'
-        }
-
-        # 4) draw
-        fig = px.scatter(
-            plot_df,
-            x='x', y='y',
-            color='pair',
-            symbol='marker',
-            symbol_map=symbol_map,
-            hover_data=['role', 'thrower', 'point'],
-            labels={'x': 'Field X (m)', 'y': 'Field Y (m)', 'pair': 'Catch #'},
-            title=f"{selected_player}: Catch Locations & Throw Origins"
+        # catch layer: bigger points, fully filled
+        catch_layer = alt.Chart(plot_df[plot_df.role == 'catch']).mark_point(
+            size=250,  # bigger dots
+            filled=True  # solid fill
+        ).encode(
+            x=alt.X('x:Q', title='Field X (m)'),
+            y=alt.Y('y:Q', title='Field Y (m)'),
+            color=alt.Color('pair:N', legend=None),
+            shape=alt.Shape('marker:N',
+                            scale=alt.Scale(domain=['low', 'high'], range=['circle', 'square']),
+                            legend=None),
+            opacity=alt.condition(hover, alt.value(1), alt.value(0.2)),
+            tooltip=[
+                alt.Tooltip('role:N', title='Role'),
+                alt.Tooltip('thrower:N', title='Thrower'),
+                alt.Tooltip('point:Q', title='Point')
+            ]
         )
 
-        # 5) style
-        fig.update_layout(
-            paper_bgcolor='white',
-            plot_bgcolor='white',
-            font_color='black',
-            hovermode='closest',
-            legend_title_text='Pair ID',
+        # origin layer: smaller stars
+        origin_layer = alt.Chart(plot_df[plot_df.role == 'origin']).mark_text(
+            text='★',
+            size=100  # reduced from 300
+        ).encode(
+            x='x:Q',
+            y='y:Q',
+            color=alt.Color('pair:N', legend=None),
+            opacity=alt.condition(hover, alt.value(1), alt.value(0.2)),
+            tooltip=[
+                alt.Tooltip('role:N', title='Role'),
+                alt.Tooltip('thrower:N', title='Thrower'),
+                alt.Tooltip('point:Q', title='Point')
+            ]
         )
-        fig.update_xaxes(showgrid=True, gridcolor='lightgrey')
-        fig.update_yaxes(showgrid=True, gridcolor='lightgrey')
 
-        st.plotly_chart(fig, use_container_width=True)
+        # combine and style
+        chart = alt.layer(catch_layer, origin_layer).add_selection(hover).properties(
+            width=700,
+            height=500,
+            title=f"Catches & Throw Origins — {selected_player}",
+            background='white'  # white overall background
+        ).configure_view(
+            fill='white',  # white inside plotting area
+            stroke='lightgrey'  # light-grey border
+        ).configure_axis(
+            grid=True,
+            gridColor='lightgrey',
+            labelColor='black',
+            titleColor='black'
+        ).configure_title(
+            color='black'
+        ).configure_legend(
+            labelColor='black',
+            titleColor='black'
+        )
+
+        st.altair_chart(chart, use_container_width=True)
 
     # a) relative throw heatmap
     fig_rel_throw, ax_rel_throw = plt.subplots()
