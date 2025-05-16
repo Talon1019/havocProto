@@ -133,7 +133,45 @@ with tab2:
     st.pyplot(fig2)
 
     st.divider()
+    # --- Scoring Probability Surface ---
+    st.divider()
+    st.subheader("🎯 Predicted Scoring Probability by Catch Location")
 
+    # prepare your catch data
+    df_catch = df.dropna(subset=['recX', 'recY']).copy()
+    df_catch['is_goal'] = (df_catch['result'] == 'Goal').astype(int)
+
+    # train a logistic model
+    from sklearn.linear_model import LogisticRegression
+
+    model = LogisticRegression()
+    model.fit(df_catch[['recX', 'recY']], df_catch['is_goal'])
+
+    # make a mesh grid over the field
+    x_min, x_max = df_catch['recX'].min(), df_catch['recX'].max()
+    y_min, y_max = df_catch['recY'].min(), df_catch['recY'].max()
+    xx, yy = np.meshgrid(
+        np.linspace(x_min, x_max, 60),
+        np.linspace(y_min, y_max, 60)
+    )
+
+    # predict goal‐probabilities
+    probs = model.predict_proba(np.c_[xx.ravel(), yy.ravel()])[:, 1].reshape(xx.shape)
+
+    # plot
+    fig_prob, ax_prob = plt.subplots(figsize=(8, 6))
+    pcm = ax_prob.pcolormesh(xx, yy, probs, cmap="RdYlGn_r", shading="auto", vmin=0, vmax=1)
+    fig_prob.colorbar(pcm, ax=ax_prob, label="P(Score)")
+    ax_prob.set_title("Score Probability Surface")
+    ax_prob.set_xlabel("Field X (m)")
+    ax_prob.set_ylabel("Field Y (m)")
+    ax_prob.set_aspect('equal', 'box')
+
+    # optional: overlay raw catches for context
+    if overlay_points:
+        ax_prob.scatter(df_catch['recX'], df_catch['recY'], c='black', s=10, alpha=0.2)
+
+    st.pyplot(fig_prob)
     # 3) Smoothed throwaway origin KDE
     st.subheader("🌫️ Smoothed Throwaway Origin Heatmap")
     drops = df[df['result']=='Throwaway']
