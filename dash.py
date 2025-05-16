@@ -152,7 +152,7 @@ with tab2:
     model.fit(X, y)
 
     # 3) set up a 30×20 grid over the field
-    nx, ny = 30, 20
+    nx, ny = 10, 5
     x_min, x_max = df['thrX'].min(), df['thrX'].max()
     y_min, y_max = df['thrY'].min(), df['thrY'].max()
     x_centers = np.linspace(x_min, x_max, nx)
