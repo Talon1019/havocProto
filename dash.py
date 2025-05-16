@@ -12,7 +12,6 @@ st.set_page_config(
     theme="light"               # ← force the light theme
 )
 # --- APP INTRO ---
-st.title("Ultimate Frisbee Throw Analytics Dashboard")
 st.markdown("""
 **Welcome!**  
 This dashboard helps players and coaches analyze throw-by-throw ultimate data, player tendencies, and team strategies.
