@@ -249,70 +249,65 @@ with tab2:
             'point': row['point']
         })
     plot_df = pd.DataFrame(rows)
-    
+
     import altair as alt
 
     st.divider()
     st.subheader(f"🎯 Catches & Throw Origins for {selected_player} (Interactive)")
 
-    # Make sure plot_df exists with columns: pair, x, y, role, marker, thrower, point
-    if plot_df.empty:
-        st.info(f"No catch data for {selected_player}.")
-    else:
-        # 1) hover selector on 'pair'
-        hover = alt.selection_single(
-            fields=['pair'],
-            on='mouseover',
-            empty='none'
-        )
+    # assume plot_df has columns: pair, x, y, role ('origin'/'catch'), marker ('high'/'low'), thrower, point
 
-        # 2) catch layer: circle or square, size=200
-        catch_layer = alt.Chart(plot_df[plot_df.role == 'catch']).mark_point(size=200).encode(
-            x=alt.X('x:Q', title='Field X (m)'),
-            y=alt.Y('y:Q', title='Field Y (m)'),
-            color=alt.Color('pair:N', legend=None),
-            shape=alt.Shape('marker:N',
-                            scale=alt.Scale(domain=['low', 'high'], range=['circle', 'square']),
-                            legend=None),
-            opacity=alt.condition(hover, alt.value(1), alt.value(0.2)),
-            tooltip=[
-                alt.Tooltip('role:N', title='Role'),
-                alt.Tooltip('thrower:N', title='Thrower'),
-                alt.Tooltip('point:Q', title='Point')
-            ]
-        )
+    # split into two layers
+    df_catch = plot_df[plot_df['role'] == 'catch']
+    df_origin = plot_df[plot_df['role'] == 'origin']
 
-        # 3) origin layer: stars, size=300
-        origin_layer = alt.Chart(plot_df[plot_df.role == 'origin']).mark_text(
-            text='★', size=300
-        ).encode(
-            x='x:Q',
-            y='y:Q',
-            color=alt.Color('pair:N', legend=None),
-            opacity=alt.condition(hover, alt.value(1), alt.value(0.2)),
-            tooltip=[
-                alt.Tooltip('role:N', title='Role'),
-                alt.Tooltip('thrower:N', title='Thrower'),
-                alt.Tooltip('point:Q', title='Point')
-            ]
-        )
+    # define hover‐based selector on the 'pair' field
+    hover = alt.selection_single(
+        fields=['pair'],
+        on='mouseover',
+        empty='none'
+    )
 
-        # 4) combine & style
-        chart = alt.layer(catch_layer, origin_layer).add_selection(hover).properties(
-            width=700, height=500,
-            title=f"Catches & Throw Origins — {selected_player}"
-        ).configure_view(
-            stroke='lightgrey'
-        ).configure_axis(
-            grid=True, gridColor='lightgrey',
-            labelColor='black', titleColor='black'
-        ).configure_title(
-            color='black'
-        ).configure_legend(
-            labelColor='black', titleColor='black'
-        )
+    # layer 1: catches
+    catch_layer = alt.Chart(df_catch).mark_point().encode(
+        x=alt.X('x:Q', title='Field X (m)'),
+        y=alt.Y('y:Q', title='Field Y (m)'),
+        color=alt.Color('pair:N', legend=None),
+        shape=alt.Shape('marker:N',
+                        scale=alt.Scale(domain=['low', 'high'], range=['circle', 'square']),
+                        legend=None
+                        ),
+        size=alt.value(150),  # bigger catch symbols
+        opacity=alt.condition(hover, alt.value(1), alt.value(0.2)),
+        tooltip=['role', 'thrower', 'point']
+    )
 
-        st.altair_chart(chart, use_container_width=True)
+    # layer 2: throw origins as stars
+    origin_layer = alt.Chart(df_origin).mark_text(
+        text='★'
+    ).encode(
+        x='x:Q',
+        y='y:Q',
+        color=alt.Color('pair:N', legend=None),
+        size=alt.value(250),  # bigger stars
+        opacity=alt.condition(hover, alt.value(1), alt.value(0.2)),
+        tooltip=['role', 'thrower', 'point']
+    )
+
+    # combine, add the hover selection, and style
+    chart = alt.layer(catch_layer, origin_layer).add_selection(hover).properties(
+        width=700,
+        height=500
+    ).configure_view(
+        stroke='lightgrey'  # field border
+    ).configure_axis(
+        grid=True, gridColor='lightgrey',
+        labelColor='black', titleColor='black'
+    ).configure_title(
+        color='black'
+    )
+
+    st.altair_chart(chart, use_container_width=True)
 
     # a) relative throw heatmap
     fig_rel_throw, ax_rel_throw = plt.subplots()
