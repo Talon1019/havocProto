@@ -8,8 +8,7 @@ import matplotlib.colors as mcolors
 
 st.set_page_config(
     page_title="Ultimate Frisbee Throw Dashboard",
-    layout="wide",
-    theme="light"               # ← force the light theme
+    layout="wide"             # ← force the light theme
 )
 # --- APP INTRO ---
 st.markdown("""
