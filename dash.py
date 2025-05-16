@@ -133,7 +133,7 @@ with tab2:
     st.pyplot(fig2)
 
     st.divider()
-    # --- Scoring Probability Surface (Discrete Grid) ---
+    # --- Scoring Probability Surface (Discrete 60×60 Grid) ---
     st.divider()
     st.subheader("🎯 Predicted Scoring Probability by Catch Location")
 
@@ -147,36 +147,40 @@ with tab2:
     model = LogisticRegression()
     model.fit(df_catch[['recX', 'recY']], df_catch['is_goal'])
 
-    # 3) build a 60×60 mesh over the field
+    # 3) build 61 “edge” coordinates on each axis (for 60 cells)
     x_min, x_max = df_catch['recX'].min(), df_catch['recX'].max()
     y_min, y_max = df_catch['recY'].min(), df_catch['recY'].max()
-    xx, yy = np.meshgrid(
-        np.linspace(x_min, x_max, 60),
-        np.linspace(y_min, y_max, 60)
-    )
+    x_edges = np.linspace(x_min, x_max, 61)
+    y_edges = np.linspace(y_min, y_max, 61)
 
-    # 4) predict score‐prob at each cell
+    # 4) compute the 60×60 “center” points where we predict
+    x_centers = (x_edges[:-1] + x_edges[1:]) / 2
+    y_centers = (y_edges[:-1] + y_edges[1:]) / 2
+    xxc, yyc = np.meshgrid(x_centers, y_centers)
+
+    # 5) predict score‐prob at each center, then reshape to 60×60
     probs = model.predict_proba(
-        np.c_[xx.ravel(), yy.ravel()]
-    )[:, 1].reshape(xx.shape)
+        np.c_[xxc.ravel(), yyc.ravel()]
+    )[:, 1].reshape(xxc.shape)
 
-    # 5) plot with visible cell borders
+    # 6) plot with pcolormesh using the edge arrays
     fig_prob, ax_prob = plt.subplots(figsize=(8, 6))
     mesh = ax_prob.pcolormesh(
-        xx, yy, probs,
+        x_edges, y_edges, probs,
         cmap="RdYlGn_r",
-        shading="flat",  # nearest‐neighbor colors
-        edgecolors="lightgray",  # grid lines
+        shading="flat",  # exact cell coloring
+        edgecolors="lightgray",  # draw grid lines
         linewidth=0.5,
         vmin=0, vmax=1
     )
     fig_prob.colorbar(mesh, ax=ax_prob, label="P(Score)")
+
     ax_prob.set_title("Score Probability Surface")
     ax_prob.set_xlabel("Field X (m)")
     ax_prob.set_ylabel("Field Y (m)")
     ax_prob.set_aspect('equal', 'box')
 
-    # 6) optional: overlay the raw catches for context
+    # 7) optional: overlay raw catch points
     if overlay_points:
         ax_prob.scatter(
             df_catch['recX'], df_catch['recY'],
