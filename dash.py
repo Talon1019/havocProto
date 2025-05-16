@@ -138,54 +138,52 @@ with tab2:
     from sklearn.linear_model import LogisticRegression
 
     st.divider()
-    st.subheader("🤖 Modelled Scoring Probability by Throw Origin")
+    st.subheader("🤖 Modelled Scoring Probability (5×10 Grid)")
 
     # 1) flag each throw by whether its point ended in a goal
-    end_df = df.groupby('point').last().reset_index()[['point','result']]
-    end_df['scored'] = (end_df['result']=='Goal').astype(int)
-    df_scoring = df.merge(end_df[['point','scored']], on='point', how='left')
+    end_df = df.groupby('point').last().reset_index()[['point', 'result']]
+    end_df['scored'] = (end_df['result'] == 'Goal').astype(int)
+    df_scoring = df.merge(end_df[['point', 'scored']], on='point', how='left')
 
-    # 2) train a logistic regression on (thrX, thrY) → scored
-    X = df_scoring[['thrX','thrY']].values
+    # 2) train logistic on origin → scored
+    X = df_scoring[['thrX', 'thrY']].values
     y = df_scoring['scored'].values
     model = LogisticRegression(max_iter=1000)
     model.fit(X, y)
 
-    # 3) set up a 30×20 grid over the field
-    nx, ny = 10, 5
+    # 3) set up 5×10 grid
+    nx, ny = 5, 10
     x_min, x_max = df['thrX'].min(), df['thrX'].max()
     y_min, y_max = df['thrY'].min(), df['thrY'].max()
     x_centers = np.linspace(x_min, x_max, nx)
     y_centers = np.linspace(y_min, y_max, ny)
     XX, YY = np.meshgrid(x_centers, y_centers)
-    grid_points = np.column_stack([XX.ravel(), YY.ravel()])
+    grid = np.column_stack([XX.ravel(), YY.ravel()])
 
-    # 4) predict probability at each cell center
-    probs = model.predict_proba(grid_points)[:,1].reshape(ny, nx)
+    # 4) predict P(goal) at each cell
+    probs = model.predict_proba(grid)[:, 1].reshape(ny, nx)
 
-    # 5) plot it
-    fig4, ax4 = plt.subplots(figsize=(8,6))
-    mesh = ax4.pcolormesh(
-        np.linspace(x_min, x_max, nx+1),
-        np.linspace(y_min, y_max, ny+1),
+    # 5) plot
+    fig, ax = plt.subplots(figsize=(8, 6))
+    mesh = ax.pcolormesh(
+        np.linspace(x_min, x_max, nx + 1),
+        np.linspace(y_min, y_max, ny + 1),
         probs, cmap='coolwarm', shading='auto', vmin=0, vmax=1
     )
-    # annotate each cell with “XX%”
+    # annotate each center with the single "XX%"
     for i in range(nx):
         for j in range(ny):
-            p = probs[j, i]
-            ax4.text(
+            ax.text(
                 x_centers[i], y_centers[j],
-                f"{p*100:.0f}%",
-                ha='center', va='center', fontsize=6,
-                color='white' if p>0.5 else 'black'
+                f"{probs[j, i] * 100:.0f}%",
+                ha='center', va='center', fontsize=8,
+                color='white' if probs[j, i] > 0.5 else 'black'
             )
-    ax4.set_title("Predicted P(Goal after this throw)")
-    ax4.set_xlabel("Field X (m)")
-    ax4.set_ylabel("Field Y (m)")
-    fig4.colorbar(mesh, ax=ax4, label="Modelled P(Goal)")
-    st.pyplot(fig4)
-
+    ax.set_title("Predicted P(Goal) by Throw Origin (5×10 Grid)")
+    ax.set_xlabel("Field X (m)")
+    ax.set_ylabel("Field Y (m)")
+    fig.colorbar(mesh, ax=ax, label="P(Goal)")
+    st.pyplot(fig)
 
     # 3) Smoothed throwaway origin KDE
     st.subheader("🌫️ Smoothed Throwaway Origin Heatmap")
