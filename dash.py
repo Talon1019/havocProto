@@ -284,7 +284,7 @@ with tab2:
         # origin layer: smaller stars
         origin_layer = alt.Chart(plot_df[plot_df.role == 'origin']).mark_text(
             text='★',
-            size=50  # reduced from 300
+            size=25  # reduced from 300
         ).encode(
             x='x:Q',
             y='y:Q',
