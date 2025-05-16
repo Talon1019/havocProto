@@ -134,57 +134,58 @@ with tab2:
 
     st.divider()
     st.divider()
-    st.subheader("⚽ Scoring Probability by Throw Origin")
 
-    # 1) build a point-level goal flag
-    #   last event of each point -> did it end in a Goal?
+    from sklearn.linear_model import LogisticRegression
+
+    st.divider()
+    st.subheader("🤖 Modelled Scoring Probability by Throw Origin")
+
+    # 1) flag each throw by whether its point ended in a goal
     end_df = df.groupby('point').last().reset_index()[['point','result']]
-    end_df['scored'] = (end_df['result'] == 'Goal').astype(int)
+    end_df['scored'] = (end_df['result']=='Goal').astype(int)
     df_scoring = df.merge(end_df[['point','scored']], on='point', how='left')
 
-    # 2) define your grid
-    nx, ny = 15, 10
-    x_min, x_max = df_scoring['thrX'].min(), df_scoring['thrX'].max()
-    y_min, y_max = df_scoring['thrY'].min(), df_scoring['thrY'].max()
-    x_edges = np.linspace(x_min, x_max, nx+1)
-    y_edges = np.linspace(y_min, y_max, ny+1)
+    # 2) train a logistic regression on (thrX, thrY) → scored
+    X = df_scoring[['thrX','thrY']].values
+    y = df_scoring['scored'].values
+    model = LogisticRegression(max_iter=1000)
+    model.fit(X, y)
 
-    # 3) histogram counts and weighted sums
-    total_counts, _, _ = np.histogram2d(
-        df_scoring['thrX'], df_scoring['thrY'],
-        bins=[x_edges, y_edges]
-    )
-    goal_counts, _, _ = np.histogram2d(
-        df_scoring['thrX'], df_scoring['thrY'],
-        bins=[x_edges, y_edges],
-        weights=df_scoring['scored']
-    )
+    # 3) set up a 30×20 grid over the field
+    nx, ny = 30, 20
+    x_min, x_max = df['thrX'].min(), df['thrX'].max()
+    y_min, y_max = df['thrY'].min(), df['thrY'].max()
+    x_centers = np.linspace(x_min, x_max, nx)
+    y_centers = np.linspace(y_min, y_max, ny)
+    XX, YY = np.meshgrid(x_centers, y_centers)
+    grid_points = np.column_stack([XX.ravel(), YY.ravel()])
 
-    # 4) compute probabilities
-    prob_map = np.where(total_counts>0, goal_counts/total_counts, np.nan)
+    # 4) predict probability at each cell center
+    probs = model.predict_proba(grid_points)[:,1].reshape(ny, nx)
 
-    # 5) plot with percentages
+    # 5) plot it
     fig4, ax4 = plt.subplots(figsize=(8,6))
     mesh = ax4.pcolormesh(
-        x_edges, y_edges, prob_map.T,
-        cmap='coolwarm', shading='auto', vmin=0, vmax=1
+        np.linspace(x_min, x_max, nx+1),
+        np.linspace(y_min, y_max, ny+1),
+        probs, cmap='coolwarm', shading='auto', vmin=0, vmax=1
     )
-    # annotate each cell
+    # annotate each cell with “XX%”
     for i in range(nx):
         for j in range(ny):
-            if not np.isnan(prob_map[i,j]):
-                cx = (x_edges[i] + x_edges[i+1]) / 2
-                cy = (y_edges[j] + y_edges[j+1]) / 2
-                ax4.text(
-                    cx, cy,
-                    f"{prob_map[i,j]*100:.0f}%",
-                    ha='center', va='center', fontsize=8, color='white'
-                )
-    ax4.set_title("Scoring Probability by Throw Origin")
-    ax4.set_xlabel("Field X (meters)")
-    ax4.set_ylabel("Field Y (meters)")
-    fig4.colorbar(mesh, ax=ax4, label="P(Goal after this throw)")
+            p = probs[j, i]
+            ax4.text(
+                x_centers[i], y_centers[j],
+                f"{p*100:.0f}%",
+                ha='center', va='center', fontsize=6,
+                color='white' if p>0.5 else 'black'
+            )
+    ax4.set_title("Predicted P(Goal after this throw)")
+    ax4.set_xlabel("Field X (m)")
+    ax4.set_ylabel("Field Y (m)")
+    fig4.colorbar(mesh, ax=ax4, label="Modelled P(Goal)")
     st.pyplot(fig4)
+
 
     # 3) Smoothed throwaway origin KDE
     st.subheader("🌫️ Smoothed Throwaway Origin Heatmap")
