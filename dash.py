@@ -225,7 +225,31 @@ with tab2:
     st.write(f"🎯 {selected_player} has {num_catches} catch(es), of which {num_goals} are Goals.")
 
     st.markdown("_Relative to each throw’s origin (0,0)_")
-
+    # ─── BUILD plot_df ───
+    rows = []
+    for i, row in player_catches.reset_index(drop=True).iterrows():
+        # catch point
+        rows.append({
+            'pair': i,
+            'x': row['recX'],
+            'y': row['recY'],
+            'role': 'catch',
+            'marker': 'high' if row['recY'] > 100 else 'low',
+            'thrower': row['thrower'],
+            'point': row['point']
+        })
+        # origin point
+        rows.append({
+            'pair': i,
+            'x': row['thrX'],
+            'y': row['thrY'],
+            'role': 'origin',
+            'marker': 'origin',
+            'thrower': row['thrower'],
+            'point': row['point']
+        })
+    plot_df = pd.DataFrame(rows)
+    
     import altair as alt
 
     st.divider()
