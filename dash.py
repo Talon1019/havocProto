@@ -151,6 +151,7 @@ with tab2:
         # 7. Plot
         fig, ax = plt.subplots(figsize=(8, 6))
         mesh = ax.pcolormesh(x_edges, y_edges, pct_grid.T, cmap='viridis', shading='auto', vmin=0, vmax=1)
+        st.write("Total throws per cell (nonzero):", total_counts[total_counts > 0])
 
         # Label grid cells
         x_centers = (x_edges[:-1] + x_edges[1:]) / 2
