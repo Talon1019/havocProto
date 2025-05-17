@@ -115,34 +115,57 @@ with tab2:
 
     st.divider()
 
-
-    st.divider()
-    st.subheader("💣 Huck Origin Heatmap")
-
-    # Slider to define huck threshold (default: 40m)
-    huck_min = st.slider("Minimum Huck Distance (meters)", min_value=10, max_value=80, value=40, step=5)
-
-    # Filter only throws longer than min distance
-    df['distance'] = np.sqrt((df['thrX'] - df['recX'])**2 + (df['thrY'] - df['recY'])**2)
+    # Clean and filter huck throws
+    df = df.dropna(subset=['thrX', 'thrY', 'recX', 'recY', 'result'])
+    df['distance'] = np.sqrt((df['thrX'] - df['recX']) ** 2 + (df['thrY'] - df['recY']) ** 2)
     hucks = df[df['distance'] >= huck_min]
 
     if hucks.empty:
         st.info("No throws exceed the selected huck distance.")
     else:
-        fig_huck, ax_huck = plt.subplots(figsize=(8,6))
-        sns.kdeplot(
-            x=hucks['thrX'], y=hucks['thrY'],
-            cmap="coolwarm", shade=True,
-            bw_adjust=1.2, ax=ax_huck
+        # Create a grid
+        st.subheader(f"🧮 Huck Completion % Grid (≥{huck_min}m)")
+        bins_x = 5
+        bins_y = 10
+
+        x_min, x_max = hucks['thrX'].min(), hucks['thrX'].max()
+        y_min, y_max = hucks['thrY'].min(), hucks['thrY'].max()
+        x_edges = np.linspace(x_min, x_max, bins_x + 1)
+        y_edges = np.linspace(y_min, y_max, bins_y + 1)
+
+        # Completion = 1 if "Completion", 0 otherwise
+        hucks['is_complete'] = (hucks['result'] == 'Completion').astype(int)
+
+        total_counts, _, _ = np.histogram2d(hucks['thrX'], hucks['thrY'], bins=[x_edges, y_edges])
+        comp_counts, _, _ = np.histogram2d(
+            hucks['thrX'], hucks['thrY'],
+            bins=[x_edges, y_edges],
+            weights=hucks['is_complete']
         )
-        if overlay_points:
-            ax_huck.scatter(hucks['thrX'], hucks['thrY'], c='blue', s=30, alpha=0.4)
-        ax_huck.set_title(f"Throw Origins for Hucks (≥{huck_min}m)")
-        ax_huck.set_xlabel("Field X (meters)")
-        ax_huck.set_ylabel("Field Y (meters)")
-        ax_huck.set_aspect('equal', adjustable='box')
-        st.pyplot(fig_huck)
-        
+
+        pct_grid = np.where(total_counts > 0, comp_counts / total_counts, np.nan)
+
+        # Plot the percentage grid
+        fig, ax = plt.subplots(figsize=(8, 6))
+        mesh = ax.pcolormesh(x_edges, y_edges, pct_grid.T, cmap='viridis', vmin=0, vmax=1, shading='auto')
+
+        # Add percentage text to cells
+        x_centers = (x_edges[:-1] + x_edges[1:]) / 2
+        y_centers = (y_edges[:-1] + y_edges[1:]) / 2
+        for i, x in enumerate(x_centers):
+            for j, y in enumerate(y_centers):
+                p = pct_grid[i, j]
+                if not np.isnan(p):
+                    ax.text(x, y, f"{p * 100:.0f}%", ha='center', va='center',
+                            fontsize=8, color='white' if p > 0.5 else 'black')
+
+        ax.set_title(f"Huck Completion % by Origin Zone (≥{huck_min}m)")
+        ax.set_xlabel("Field X (m)")
+        ax.set_ylabel("Field Y (m)")
+        ax.set_aspect('equal', adjustable='box')
+        fig.colorbar(mesh, ax=ax, label="Completion %")
+        st.pyplot(fig)
+
     # 2) Catch/Goal 2D‐histogram heatmap
     st.subheader("📊 Catch/Goal Heatmap (2D Histogram)")
     fig2, ax2 = plt.subplots(figsize=(8,6))
