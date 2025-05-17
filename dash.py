@@ -362,6 +362,7 @@ with tab2:
         fig_pct, ax_pct = plt.subplots(figsize=(6,6))
         cmap = plt.get_cmap("viridis")
         mesh = ax.pcolormesh(x_edges,y_edges,prob_map, shading='auto', origin='lower')
+
         fig_pct.colorbar(mesh, ax=ax_pct, label="Completion %")
         if overlay_points:
             ax_pct.scatter(relX[completed], relY[completed], c='lime', s=30, alpha=0.5)
