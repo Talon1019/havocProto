@@ -115,6 +115,34 @@ with tab2:
 
     st.divider()
 
+
+    st.divider()
+    st.subheader("💣 Huck Origin Heatmap")
+
+    # Slider to define huck threshold (default: 40m)
+    huck_min = st.slider("Minimum Huck Distance (meters)", min_value=10, max_value=80, value=40, step=5)
+
+    # Filter only throws longer than min distance
+    df['distance'] = np.sqrt((df['thrX'] - df['recX'])**2 + (df['thrY'] - df['recY'])**2)
+    hucks = df[df['distance'] >= huck_min]
+
+    if hucks.empty:
+        st.info("No throws exceed the selected huck distance.")
+    else:
+        fig_huck, ax_huck = plt.subplots(figsize=(8,6))
+        sns.kdeplot(
+            x=hucks['thrX'], y=hucks['thrY'],
+            cmap="coolwarm", shade=True,
+            bw_adjust=1.2, ax=ax_huck
+        )
+        if overlay_points:
+            ax_huck.scatter(hucks['thrX'], hucks['thrY'], c='blue', s=30, alpha=0.4)
+        ax_huck.set_title(f"Throw Origins for Hucks (≥{huck_min}m)")
+        ax_huck.set_xlabel("Field X (meters)")
+        ax_huck.set_ylabel("Field Y (meters)")
+        ax_huck.set_aspect('equal', adjustable='box')
+        st.pyplot(fig_huck)
+        
     # 2) Catch/Goal 2D‐histogram heatmap
     st.subheader("📊 Catch/Goal Heatmap (2D Histogram)")
     fig2, ax2 = plt.subplots(figsize=(8,6))
@@ -191,32 +219,6 @@ with tab2:
     fig.colorbar(mesh, ax=ax, label="P(Goal)")
     st.pyplot(fig)
 
-    st.divider()
-    st.subheader("💣 Huck Origin Heatmap")
-
-    # Slider to define huck threshold (default: 40m)
-    huck_min = st.slider("Minimum Huck Distance (meters)", min_value=10, max_value=80, value=40, step=5)
-
-    # Filter only throws longer than min distance
-    df['distance'] = np.sqrt((df['thrX'] - df['recX'])**2 + (df['thrY'] - df['recY'])**2)
-    hucks = df[df['distance'] >= huck_min]
-
-    if hucks.empty:
-        st.info("No throws exceed the selected huck distance.")
-    else:
-        fig_huck, ax_huck = plt.subplots(figsize=(8,6))
-        sns.kdeplot(
-            x=hucks['thrX'], y=hucks['thrY'],
-            cmap="coolwarm", shade=True,
-            bw_adjust=1.2, ax=ax_huck
-        )
-        if overlay_points:
-            ax_huck.scatter(hucks['thrX'], hucks['thrY'], c='blue', s=30, alpha=0.4)
-        ax_huck.set_title(f"Throw Origins for Hucks (≥{huck_min}m)")
-        ax_huck.set_xlabel("Field X (meters)")
-        ax_huck.set_ylabel("Field Y (meters)")
-        ax_huck.set_aspect('equal', adjustable='box')
-        st.pyplot(fig_huck)
 
 
     # 3) Smoothed throwaway origin KDE
