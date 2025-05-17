@@ -115,51 +115,54 @@ with tab2:
 
     st.divider()
 
-    # Clean and filter huck throws
-    df = df.dropna(subset=['thrX', 'thrY', 'recX', 'recY', 'result'])
+    st.divider()
+    st.subheader("💣 Huck Completion % Grid")
+
+    # 1. Ask user to define the minimum distance for a huck
+    huck_min = st.slider("Select minimum distance to define a 'huck' (meters):", min_value=10, max_value=80, value=40,
+                         step=5)
+
+    # 2. Clean and calculate distances
+    df = df.dropna(subset=['thrX', 'thrY', 'recX', 'recY', 'result']).copy()
     df['distance'] = np.sqrt((df['thrX'] - df['recX']) ** 2 + (df['thrY'] - df['recY']) ** 2)
+
+    # 3. Filter to hucks only
     hucks = df[df['distance'] >= huck_min]
 
     if hucks.empty:
         st.info("No throws exceed the selected huck distance.")
     else:
-        # Create a grid
-        st.subheader(f"🧮 Huck Completion % Grid (≥{huck_min}m)")
+        # 4. Set up binning
         bins_x = 5
         bins_y = 10
+        x_edges = np.linspace(hucks['thrX'].min(), hucks['thrX'].max(), bins_x + 1)
+        y_edges = np.linspace(hucks['thrY'].min(), hucks['thrY'].max(), bins_y + 1)
 
-        x_min, x_max = hucks['thrX'].min(), hucks['thrX'].max()
-        y_min, y_max = hucks['thrY'].min(), hucks['thrY'].max()
-        x_edges = np.linspace(x_min, x_max, bins_x + 1)
-        y_edges = np.linspace(y_min, y_max, bins_y + 1)
-
-        # Completion = 1 if "Completion", 0 otherwise
+        # 5. Completion indicator
         hucks['is_complete'] = (hucks['result'] == 'Completion').astype(int)
 
+        # 6. Grid counts
         total_counts, _, _ = np.histogram2d(hucks['thrX'], hucks['thrY'], bins=[x_edges, y_edges])
-        comp_counts, _, _ = np.histogram2d(
-            hucks['thrX'], hucks['thrY'],
-            bins=[x_edges, y_edges],
-            weights=hucks['is_complete']
-        )
+        comp_counts, _, _ = np.histogram2d(hucks['thrX'], hucks['thrY'], bins=[x_edges, y_edges],
+                                           weights=hucks['is_complete'])
 
         pct_grid = np.where(total_counts > 0, comp_counts / total_counts, np.nan)
 
-        # Plot the percentage grid
+        # 7. Plot
         fig, ax = plt.subplots(figsize=(8, 6))
-        mesh = ax.pcolormesh(x_edges, y_edges, pct_grid.T, cmap='viridis', vmin=0, vmax=1, shading='auto')
+        mesh = ax.pcolormesh(x_edges, y_edges, pct_grid.T, cmap='viridis', shading='auto', vmin=0, vmax=1)
 
-        # Add percentage text to cells
+        # Label grid cells
         x_centers = (x_edges[:-1] + x_edges[1:]) / 2
         y_centers = (y_edges[:-1] + y_edges[1:]) / 2
         for i, x in enumerate(x_centers):
             for j, y in enumerate(y_centers):
                 p = pct_grid[i, j]
                 if not np.isnan(p):
-                    ax.text(x, y, f"{p * 100:.0f}%", ha='center', va='center',
-                            fontsize=8, color='white' if p > 0.5 else 'black')
+                    ax.text(x, y, f"{p * 100:.0f}%", ha='center', va='center', fontsize=8,
+                            color='white' if p > 0.5 else 'black')
 
-        ax.set_title(f"Huck Completion % by Origin Zone (≥{huck_min}m)")
+        ax.set_title(f"Huck Completion % (Origin Grid, ≥{huck_min}m)")
         ax.set_xlabel("Field X (m)")
         ax.set_ylabel("Field Y (m)")
         ax.set_aspect('equal', adjustable='box')
