@@ -116,7 +116,7 @@ with tab2:
     st.divider()
 
     st.divider()
-    st.subheader("💣 Huck Completion vs. Throwaway Counts by Grid Cell")
+    st.subheader("💣 Huck Completion vs. Throwaway Grid")
 
     # 1. Huck-distance slider
     huck_min = st.slider(
@@ -124,7 +124,7 @@ with tab2:
         min_value=10, max_value=80, value=40, step=5
     )
 
-    # 2. Compute distances & filter
+    # 2. Clean & compute distances
     df_clean = df.dropna(subset=['thrX', 'thrY', 'recX', 'recY', 'result']).copy()
     df_clean['distance'] = np.hypot(
         df_clean['thrX'] - df_clean['recX'],
@@ -136,33 +136,45 @@ with tab2:
         st.info("No throws exceed the selected huck distance.")
         st.stop()
 
-    # 3. Define grid over entire field
+    # 3. Define full-field grid
     bins_x, bins_y = 5, 10
     x_edges = np.linspace(-27.5, 27.5, bins_x + 1)
     y_edges = np.linspace(0.0, 100.0, bins_y + 1)
 
-    # 4. Flag completions and throwaways
+    # 4. Flag completions
     hucks['is_complete'] = (hucks['result'] == 'Completion').astype(int)
-    hucks['is_throwaway'] = (hucks['result'] == 'Throwaway').astype(int)
 
-    # 5. Compute histograms
-    total_counts, _, _ = np.histogram2d(hucks['thrX'], hucks['thrY'], bins=[x_edges, y_edges])
-    comp_counts, _, _ = np.histogram2d(hucks['thrX'], hucks['thrY'], bins=[x_edges, y_edges],
-                                       weights=hucks['is_complete'])
-    throwaway_counts, _, _ = np.histogram2d(hucks['thrX'], hucks['thrY'], bins=[x_edges, y_edges],
-                                            weights=hucks['is_throwaway'])
+    # 5. Count totals & completions
+    total_counts, _, _ = np.histogram2d(
+        hucks['thrX'], hucks['thrY'],
+        bins=[x_edges, y_edges]
+    )
+    comp_counts, _, _ = np.histogram2d(
+        hucks['thrX'], hucks['thrY'],
+        bins=[x_edges, y_edges],
+        weights=hucks['is_complete']
+    )
 
-    # 6. Print counts for each cell
-    st.write("🏷️ Total hucks per cell (flattened):", total_counts.flatten().astype(int))
+    # 6. Derive throwaway counts
+    throw_counts = total_counts - comp_counts
+
+    # 7. Print them
     st.write("✅ Completions per cell (flattened):", comp_counts.flatten().astype(int))
-    st.write("❌ Throwaways per cell (flattened):", throwaway_counts.flatten().astype(int))
+    st.write("❌ Throwaways per cell   (flattened):", throw_counts.flatten().astype(int))
 
-    # 7. (Optional) Visualize completion % grid
-    pct_grid = np.where(total_counts > 0, comp_counts / total_counts, np.nan)
+    # 8. Compute percent = comp / (comp + throw)
+    denom = comp_counts + throw_counts
+    pct_grid = np.where(denom > 0, comp_counts / denom, np.nan)
+
+    # 9. Plot
     fig, ax = plt.subplots(figsize=(8, 6))
-    mesh = ax.pcolormesh(x_edges, y_edges, pct_grid.T, cmap='viridis', shading='auto', vmin=0, vmax=1)
-    fig.colorbar(mesh, ax=ax, label="Completion %")
+    mesh = ax.pcolormesh(
+        x_edges, y_edges, pct_grid.T,
+        cmap='viridis', shading='auto', vmin=0, vmax=1
+    )
+    fig.colorbar(mesh, ax=ax, label="Completion % (comp/(comp+throw))")
 
+    # 10. Annotate
     x_centers = (x_edges[:-1] + x_edges[1:]) / 2
     y_centers = (y_edges[:-1] + y_edges[1:]) / 2
     Z = pct_grid.T
@@ -170,13 +182,17 @@ with tab2:
         for i, x in enumerate(x_centers):
             p = Z[j, i]
             if not np.isnan(p):
-                ax.text(x, y, f"{p * 100:.0f}%", ha='center', va='center', fontsize=8,
-                        color='white' if p > 0.5 else 'black')
+                ax.text(
+                    x, y, f"{p * 100:.0f}%",
+                    ha='center', va='center', fontsize=8,
+                    color='white' if p > 0.5 else 'black'
+                )
 
-    ax.set_title(f"Huck Completion % Grid (≥{huck_min} m)")
+    ax.set_title(f"Huck Completion % (≥{huck_min} m)")
     ax.set_xlabel("Field X (m)")
     ax.set_ylabel("Field Y (m)")
     ax.set_aspect('equal', adjustable='box')
+
     st.pyplot(fig)
 
     # 2) Catch/Goal 2D‐histogram heatmap
