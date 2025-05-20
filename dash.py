@@ -287,7 +287,7 @@ with tab2:
         )
 
         origin_layer = alt.Chart(plot_df[plot_df.role == 'origin']) \
-            .mark_text(text='★', size=80) \
+            .mark_text(text='★', size=20) \
             .encode(
             x='x:Q',
             y='y:Q',
